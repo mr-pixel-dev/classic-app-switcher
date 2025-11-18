@@ -1,0 +1,17 @@
+{
+  "uuid": "classic-app-switcher@mr-pixel-dev",
+  "name": "Classic App Switcher",
+  "description": "Mac OS 9-style application switcher for GNOME",
+  "author": "Mr Pixel <mr-pixel-dev@users.noreply.github.com>",
+  "url": "https://github.com/mr-pixel-dev/classic-app-switcher",
+  "license": "GPL-3.0-or-later",
+  "shell-version": [
+    "48",
+    "49",
+    "50"
+  ],
+  "version": 1,
+  "version-name": "1.0",
+  "settings-schema": "org.gnome.shell.extensions.classic-app-switcher",
+  "gettext-domain": "classic-app-switcher"
+}

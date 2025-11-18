@@ -1,0 +1,164 @@
+# Classic App Switcher - Translation Template
+# Copyright (C) 2025 Classic App Switcher Contributors
+# This file is distributed under the same license as the Classic App Switcher package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Classic App Switcher 1.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-11-11 12:00+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: Mr Pixel <mr-pixel-dev@users.noreply.github.com>\n"
+"Language-Team: LANGUAGE <mr-pixel-dev@users.noreply.github.com>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: extension.js:23 prefs.js:45
+msgid "Classic App Switcher"
+msgstr ""
+
+#: extension.js:79
+msgid "Application Switcher"
+msgstr ""
+
+#: extension.js:91
+msgid "Hide Desktop"
+msgstr ""
+
+#: extension.js:95
+msgid "Hide Others"
+msgstr ""
+
+#: extension.js:100
+msgid "Show All"
+msgstr ""
+
+#: extension.js:109
+msgid "Quit Desktop"
+msgstr ""
+
+#: extension.js:114
+msgid "Open Applications"
+msgstr ""
+
+#. Translators: %s is the application name
+#: extension.js:238
+#, javascript-format
+msgid "Hide %s"
+msgstr ""
+
+#. Translators: %s is the application name
+#: extension.js:240
+#, javascript-format
+msgid "Quit %s"
+msgstr ""
+
+#. Translators: %s is the application name
+#: extension.js:242
+#, javascript-format
+msgid "Application Switcher - %s"
+msgstr ""
+
+#: extension.js:254
+msgid "Desktop"
+msgstr ""
+
+#: extension.js:256
+msgid "Application Switcher - Desktop"
+msgstr ""
+
+#: extension.js:411
+msgid "No Applications"
+msgstr ""
+
+#. Translators: %d is the workspace number
+#: extension.js:416
+#, javascript-format
+msgid "Workspace %d"
+msgstr ""
+
+#: prefs.js:18
+msgid "General"
+msgstr ""
+
+#: prefs.js:52
+msgid "Mac OS 9-style application switching for GNOME"
+msgstr ""
+
+#: prefs.js:63
+msgid "Appearance"
+msgstr ""
+
+#: prefs.js:64
+msgid "Customize how the switcher looks"
+msgstr ""
+
+#: prefs.js:69
+msgid "Show Application Name"
+msgstr ""
+
+#: prefs.js:70
+msgid "Display the name of the focused application in the panel"
+msgstr ""
+
+#: prefs.js:83
+msgid "Panel Position"
+msgstr ""
+
+#: prefs.js:84
+msgid "Configure where the switcher appears in the panel"
+msgstr ""
+
+#: prefs.js:89
+msgid "Panel Area"
+msgstr ""
+
+#: prefs.js:90
+msgid "Choose which section of the panel to use"
+msgstr ""
+
+#: prefs.js:94
+msgid "Left"
+msgstr ""
+
+#: prefs.js:95
+msgid "Center"
+msgstr ""
+
+#: prefs.js:96
+msgid "Right"
+msgstr ""
+
+#: prefs.js:112
+msgid "Position Offset"
+msgstr ""
+
+#: prefs.js:113
+msgid "Fine-tune position (0 = default, negative = left, positive = right)"
+msgstr ""
+
+#: schemas/org.gnome.shell.extensions.classic-app-switcher.gschema.xml:7
+msgid "Show application name label"
+msgstr ""
+
+#: schemas/org.gnome.shell.extensions.classic-app-switcher.gschema.xml:8
+msgid "Display the name of the currently focused application next to its icon in the panel"
+msgstr ""
+
+#: schemas/org.gnome.shell.extensions.classic-app-switcher.gschema.xml:17
+msgid "Panel box position"
+msgstr ""
+
+#: schemas/org.gnome.shell.extensions.classic-app-switcher.gschema.xml:18
+msgid "The panel area where the switcher should be placed (left, center, or right)"
+msgstr ""
+
+#: schemas/org.gnome.shell.extensions.classic-app-switcher.gschema.xml:25
+msgid "Position offset in panel box"
+msgstr ""
+
+#: schemas/org.gnome.shell.extensions.classic-app-switcher.gschema.xml:26
+msgid "Fine-tune the position within the chosen panel box (0 is default, negative moves left/up, positive moves right/down)"
+msgstr ""

@@ -1,0 +1,16 @@
+"This extension has been possible thanks to the help and encouragement of Grok and his chaotic madness combined with the calm, considered and reasoned contributions from Claude." 🤖 Thanks friends!
+
+## Credits
+
+**Development:**
+- Primary development and design by [Mr Pixel / grafikation@gmail.com]
+- AI assistance from Anthropic's Claude and xAI's Grok for code generation and debugging
+
+**Built with:**
+- GNOME Shell APIs (GPL-3.0)
+- Standard extension patterns from GNOME Shell Extensions documentation
+
+**Special Thanks:**
+- The GNOME Shell development team for excellent documentation
+- The folks at Infinite Mac (https://infinitemac.org/) for allowing me to relive those Classic Mac days via their web based virtualisation (Go SheepShaver! 🐑 Baaah)
+- [Any testers/contributors]

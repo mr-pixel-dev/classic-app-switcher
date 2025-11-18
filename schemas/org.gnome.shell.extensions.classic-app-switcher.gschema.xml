@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist gettext-domain="classic-app-switcher">
+  <schema id="org.gnome.shell.extensions.classic-app-switcher" 
+          path="/org/gnome/shell/extensions/classic-app-switcher/">
+    
+    <key name="show-label" type="b">
+      <default>true</default>
+      <summary>Show application name label</summary>
+      <description>Display the name of the currently focused application next to its icon in the panel</description>
+    </key>
+    
+    <key name="panel-box" type="s">
+      <default>'right'</default>
+      <choices>
+        <choice value='left'/>
+        <choice value='center'/>
+        <choice value='right'/>
+      </choices>
+      <summary>Panel box position</summary>
+      <description>The panel area where the switcher should be placed (left, center, or right)</description>
+    </key>
+    
+    <key name="position-in-box" type="i">
+      <default>0</default>
+      <range min="-10" max="10"/>
+      <summary>Position offset in panel box</summary>
+      <description>Fine-tune the position within the chosen panel box (0 is default, negative moves left/up, positive moves right/down)</description>
+    </key>
+    
+  </schema>
+</schemalist>
