@@ -30,6 +30,7 @@ class ClassicAppSwitcher extends PanelMenu.Button {
         this._workspaceId = null;
         this._trackerId = null;
         this._settingsChangedId = null;
+<<<<<<< HEAD
         
         // Initialize separate timeout IDs for each function
         this._activateTimeoutId = null;
@@ -37,6 +38,9 @@ class ClassicAppSwitcher extends PanelMenu.Button {
         this._showAllTimeoutId = null;
         this._hideCurrentAppTimeoutId = null;
         this._hideOthersTimeoutId = null;
+=======
+        this._timeoutId = null;
+>>>>>>> d146d4823664e0a084b9e1104b24b93543b2a2db
 
         this._buildUI();
         this._buildMenu();
