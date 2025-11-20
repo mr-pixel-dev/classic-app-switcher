@@ -30,6 +30,13 @@ class ClassicAppSwitcher extends PanelMenu.Button {
         this._workspaceId = null;
         this._trackerId = null;
         this._settingsChangedId = null;
+        
+        // Initialize separate timeout IDs for each function
+        this._activateTimeoutId = null;
+        this._updateTimeoutId = null;
+        this._showAllTimeoutId = null;
+        this._hideCurrentAppTimeoutId = null;
+        this._hideOthersTimeoutId = null;
 
         this._buildUI();
         this._buildMenu();
@@ -112,6 +119,13 @@ class ClassicAppSwitcher extends PanelMenu.Button {
         // Separator before application list with label (ALWAYS visible)
         this._appListSeparator = new PopupMenu.PopupSeparatorMenuItem(_('Open Applications'));
         this.menu.addMenuItem(this._appListSeparator);
+        
+        // Refresh application list when menu opens to ensure correct stacking order
+        this.menu.connect('open-state-changed', (menu, open) => {
+            if (open) {
+                this._buildApplicationList();
+            }
+        });
     }
 
     /**
@@ -441,7 +455,7 @@ class ClassicAppSwitcher extends PanelMenu.Button {
      */
     _activateApplication(app, workspace) {
         try {
-            // Get windows in proper stacking order from the display (like _showAll does)
+            // Get windows in proper stacking order from the display
             const allWindowsInStack = global.display.get_tab_list(Meta.TabList.NORMAL, workspace);
             
             // Filter to only this app's windows on this workspace
@@ -468,11 +482,11 @@ class ClassicAppSwitcher extends PanelMenu.Button {
                 }
                 
                 // Finally activate the most recent one with a small delay
-                this._timeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 50, () => {
+                this._activateTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 50, () => {
                     if (minimizedWindows[0]) {
                         Main.activateWindow(minimizedWindows[0], global.get_current_time());
                     }
-                    this._timeoutId = null;
+                    this._activateTimeoutId = null;
                     return GLib.SOURCE_REMOVE;
                 });
             } else if (visibleWindows.length > 1) {
@@ -483,11 +497,11 @@ class ClassicAppSwitcher extends PanelMenu.Button {
                 }
                 
                 // Finally activate the most recent one on top
-                this._timeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 50, () => {
+                this._activateTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 50, () => {
                     if (visibleWindows[0]) {
                         Main.activateWindow(visibleWindows[0], global.get_current_time());
                     }
-                    this._timeoutId = null;
+                    this._activateTimeoutId = null;
                     return GLib.SOURCE_REMOVE;
                 });
             } else {
@@ -496,9 +510,9 @@ class ClassicAppSwitcher extends PanelMenu.Button {
             }
             
             // Force menu refresh to update list order and checkmark
-            this._timeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 100, () => {
+            this._updateTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 100, () => {
                 this._update();
-                this._timeoutId = null;
+                this._updateTimeoutId = null;
                 return GLib.SOURCE_REMOVE;
             });
         } catch (e) {
@@ -524,9 +538,9 @@ class ClassicAppSwitcher extends PanelMenu.Button {
             });
             
             // Force menu refresh to update states
-            this._timeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 100, () => {
+            this._hideCurrentAppTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 100, () => {
                 this._update();
-                this._timeoutId = null;
+                this._hideCurrentAppTimeoutId = null;
                 return GLib.SOURCE_REMOVE;
             });
         } catch (e) {
@@ -565,9 +579,9 @@ class ClassicAppSwitcher extends PanelMenu.Button {
             });
             
             // Force menu refresh to update states
-            this._timeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 100, () => {
+            this._hideOthersTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 100, () => {
                 this._update();
-                this._timeoutId = null;
+                this._hideOthersTimeoutId = null;
                 return GLib.SOURCE_REMOVE;
             });
         } catch (e) {
@@ -602,18 +616,18 @@ class ClassicAppSwitcher extends PanelMenu.Button {
             
             // Finally, ensure the most recent one ends up on top with focus
             // Small delay to let the stack settle
-            this._timeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 50, () => {
+            this._showAllTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 50, () => {
                 if (minimizedWindows[0]) {
                     Main.activateWindow(minimizedWindows[0], global.get_current_time());
                 }
-                this._timeoutId = null;
+                this._showAllTimeoutId = null;
                 return GLib.SOURCE_REMOVE;
             });
             
-            // Force menu refresh
-            this._timeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 150, () => {
+            // Force menu refresh - reuse updateTimeoutId since this is also an update
+            this._updateTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 150, () => {
                 this._update();
-                this._timeoutId = null;
+                this._updateTimeoutId = null;
                 return GLib.SOURCE_REMOVE;
             });
         } catch (e) {
@@ -625,6 +639,32 @@ class ClassicAppSwitcher extends PanelMenu.Button {
      * Clean up resources and disconnect signals
      */
     destroy() {
+        // Clean up all timeout IDs
+        if (this._activateTimeoutId) {
+            GLib.Source.remove(this._activateTimeoutId);
+            this._activateTimeoutId = null;
+        }
+        
+        if (this._updateTimeoutId) {
+            GLib.Source.remove(this._updateTimeoutId);
+            this._updateTimeoutId = null;
+        }
+        
+        if (this._showAllTimeoutId) {
+            GLib.Source.remove(this._showAllTimeoutId);
+            this._showAllTimeoutId = null;
+        }
+        
+        if (this._hideCurrentAppTimeoutId) {
+            GLib.Source.remove(this._hideCurrentAppTimeoutId);
+            this._hideCurrentAppTimeoutId = null;
+        }
+        
+        if (this._hideOthersTimeoutId) {
+            GLib.Source.remove(this._hideOthersTimeoutId);
+            this._hideOthersTimeoutId = null;
+        }
+
         // Disconnect all signals to prevent memory leaks
         if (this._displayId) {
             global.display.disconnect(this._displayId);
@@ -645,11 +685,6 @@ class ClassicAppSwitcher extends PanelMenu.Button {
             this._settings.disconnect(this._settingsChangedId);
             this._settingsChangedId = null;
         }
-        
-        if (this._timeoutId) {
-            GLib.Source.remove(this._timeoutId);
-            this._timeoutId = null;
-        }
 
         super.destroy();
     }
@@ -660,18 +695,18 @@ class ClassicAppSwitcher extends PanelMenu.Button {
  */
 export default class extends Extension {
     enable() {
-            this._settings = this.getSettings();
-            this._switcher = new ClassicAppSwitcher(this._settings, this);
-            
-            // Add to panel - positioning is handled by _applySettings in _init
-            Main.panel.addToStatusArea(`${this.uuid}-switcher`, this._switcher);
+        this._settings = this.getSettings();
+        this._switcher = new ClassicAppSwitcher(this._settings, this);
+        
+        // Add to panel - positioning is handled by _applySettings in _init
+        Main.panel.addToStatusArea(`${this.uuid}-switcher`, this._switcher);
     }
 
     disable() {
-            if (this._switcher) {
-                this._switcher.destroy();
-                this._switcher = null;
-            }
-            this._settings = null;
+        if (this._switcher) {
+            this._switcher.destroy();
+            this._switcher = null;
+        }
+        this._settings = null;
     }
 }
