@@ -32,3 +32,6 @@ New users seeking familiarity and experienced users wanting enhanced lightweight
 1. In order to display a symbolic icon in the panel indicator, developers must ensure they have included a symbolic version of their app-icon in their package. Missing icons will result in the default full-color Icon being displayed. If you spot an application that has a missing icon please reach out to their developers politely requesting they add one!
 
 2. This extension will function perfectly well if you do not have the minimise button enabled for window management - though you may find it helpful to enable this via GNOME Tweaks for an enhanced experience, particularly if you tend to work with multiple windows and apps on a single workspace. Note: GNOME 47+ hides the minimize button by default, but it can easily be re-enabled.
+
+## Status
+🚀 Currently under review for extensions.gnome.org
