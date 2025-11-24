@@ -14,7 +14,7 @@ import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import { Extension, gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 
 /**
- * ClassicAppSwitcher - A Mac OS 9-style application switcher for GNOME
+ * Classic App Switcher - A Mac OS 9-style application switcher for GNOME
  * 
  * Displays the currently focused application in the panel and provides
  * a menu for switching between applications and managing window visibility.
@@ -30,13 +30,12 @@ class ClassicAppSwitcher extends PanelMenu.Button {
         this._workspaceId = null;
         this._trackerId = null;
         this._settingsChangedId = null;
+        this._appStateId = null;
+        this._lastKnownApp = null;
+        this._pendingApp = null;
         
-        // Initialize separate timeout IDs for each function
-        this._activateTimeoutId = null;
+        // Initialize timeout ID for panel button updates only
         this._updateTimeoutId = null;
-        this._showAllTimeoutId = null;
-        this._hideCurrentAppTimeoutId = null;
-        this._hideOthersTimeoutId = null;
 
         this._buildUI();
         this._buildMenu();
@@ -135,6 +134,7 @@ class ClassicAppSwitcher extends PanelMenu.Button {
         this.menu.connect('open-state-changed', (menu, open) => {
             if (open) {
                 this._buildApplicationList();
+                this._pendingApp = null;
             }
         });
     }
@@ -172,6 +172,17 @@ class ClassicAppSwitcher extends PanelMenu.Button {
             this._settingsChangedId = this._settings.connect(
                 'changed',
                 this._applySettings.bind(this)
+            );
+
+            // Track app state changes for launch detection
+            this._appStateId = Shell.AppSystem.get_default().connect(
+                'app-state-changed',
+                (system, app) => {
+                    if (app.get_state() === Shell.AppState.STARTING) {
+                        this._pendingApp = app;
+                        this._update();
+                    }
+                }
             );
         } catch (e) {
             logError(e, 'ClassicAppSwitcher: Failed to connect signals');
@@ -231,9 +242,22 @@ class ClassicAppSwitcher extends PanelMenu.Button {
     
         try {
             const focusWindow = global.display.focus_window;
-            const app = focusWindow
+            let app = focusWindow
                 ? Shell.WindowTracker.get_default().get_window_app(focusWindow)
                 : null;
+
+            // Flash fix: hold last known app during launch gap
+            if (app) {
+                this._lastKnownApp = app;
+                // Clear pending only when the NEW app (not the old one) gets focus
+                if (this._pendingApp && app.get_id() === this._pendingApp.get_id()) {
+                    this._pendingApp = null;
+                }
+            } else if (this._pendingApp && this._lastKnownApp) {
+                app = this._lastKnownApp;
+            } else {
+                this._lastKnownApp = null;
+            }
 
             if (app) {
                 // Update icon and label for focused application
@@ -492,15 +516,10 @@ class ClassicAppSwitcher extends PanelMenu.Button {
                     Main.activateWindow(minimizedWindows[i], global.get_current_time());
                 }
                 
-                // Finally activate the most recent one with a small delay
-                this._clearTimeout('_activateTimeoutId');
-                this._activateTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 50, () => {
-                    if (minimizedWindows[0]) {
-                        Main.activateWindow(minimizedWindows[0], global.get_current_time());
-                    }
-                    this._activateTimeoutId = null;
-                    return GLib.SOURCE_REMOVE;
-                });
+                // Finally activate the most recent one
+                if (minimizedWindows[0]) {
+                    Main.activateWindow(minimizedWindows[0], global.get_current_time());
+                }
             } else if (visibleWindows.length > 1) {
                 // Multiple visible windows - raise them all to front
                 // Activate in reverse order (oldest first) to build proper stack
@@ -509,14 +528,9 @@ class ClassicAppSwitcher extends PanelMenu.Button {
                 }
                 
                 // Finally activate the most recent one on top
-                this._clearTimeout('_activateTimeoutId');
-                this._activateTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 50, () => {
-                    if (visibleWindows[0]) {
-                        Main.activateWindow(visibleWindows[0], global.get_current_time());
-                    }
-                    this._activateTimeoutId = null;
-                    return GLib.SOURCE_REMOVE;
-                });
+                if (visibleWindows[0]) {
+                    Main.activateWindow(visibleWindows[0], global.get_current_time());
+                }
             } else {
                 // Single visible window, just activate it
                 Main.activateWindow(windows[0], global.get_current_time());
@@ -549,14 +563,6 @@ class ClassicAppSwitcher extends PanelMenu.Button {
                 if (!win.minimized && win.get_workspace() === workspace) {
                     win.minimize();
                 }
-            });
-            
-            // Force menu refresh to update states
-            this._clearTimeout('_hideCurrentAppTimeoutId');
-            this._hideCurrentAppTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 100, () => {
-                this._update();
-                this._hideCurrentAppTimeoutId = null;
-                return GLib.SOURCE_REMOVE;
             });
         } catch (e) {
             logError(e, 'ClassicAppSwitcher: Failed to hide current app');
@@ -595,14 +601,6 @@ class ClassicAppSwitcher extends PanelMenu.Button {
                     win.minimize();
                 }
             });
-            
-            // Force menu refresh to update states
-            this._clearTimeout('_hideOthersTimeoutId');
-            this._hideOthersTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 100, () => {
-                this._update();
-                this._hideOthersTimeoutId = null;
-                return GLib.SOURCE_REMOVE;
-            });
         } catch (e) {
             logError(e, 'ClassicAppSwitcher: Failed to hide other apps');
         }
@@ -634,23 +632,9 @@ class ClassicAppSwitcher extends PanelMenu.Button {
             }
             
             // Finally, ensure the most recent one ends up on top with focus
-            // Small delay to let the stack settle
-            this._clearTimeout('_showAllTimeoutId');
-            this._showAllTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 50, () => {
-                if (minimizedWindows[0]) {
-                    Main.activateWindow(minimizedWindows[0], global.get_current_time());
-                }
-                this._showAllTimeoutId = null;
-                return GLib.SOURCE_REMOVE;
-            });
-            
-            // Force menu refresh - reuse updateTimeoutId since this is also an update
-            this._clearTimeout('_updateTimeoutId');
-            this._updateTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 150, () => {
-                this._update();
-                this._updateTimeoutId = null;
-                return GLib.SOURCE_REMOVE;
-            });
+            if (minimizedWindows[0]) {
+                Main.activateWindow(minimizedWindows[0], global.get_current_time());
+            }
         } catch (e) {
             logError(e, 'ClassicAppSwitcher: Failed to show all windows');
         }
@@ -660,11 +644,8 @@ class ClassicAppSwitcher extends PanelMenu.Button {
      * Clean up resources and disconnect signals
      */
     destroy() {
-        // Clear all timeouts using the helper
-        ['_activateTimeoutId', '_updateTimeoutId', '_showAllTimeoutId',
-         '_hideCurrentAppTimeoutId', '_hideOthersTimeoutId'].forEach(id => {
-            this._clearTimeout(id);
-        });
+        // Clear panel button update timeout
+        this._clearTimeout('_updateTimeoutId');
 
         // Disconnect all signals to prevent memory leaks
         if (this._displayId) {
@@ -679,9 +660,14 @@ class ClassicAppSwitcher extends PanelMenu.Button {
         if (this._settingsChangedId) {
             this._settings.disconnect(this._settingsChangedId);
         }
+        if (this._appStateId) {
+            Shell.AppSystem.get_default().disconnect(this._appStateId);
+        }
 
         // Null them out for completeness
-        this._displayId = this._workspaceId = this._trackerId = this._settingsChangedId = null;
+        this._displayId = this._workspaceId = this._trackerId = this._settingsChangedId = this._appStateId = null;
+        this._pendingApp = null;
+        this._lastKnownApp = null;
 
         super.destroy();
     }
