@@ -259,8 +259,8 @@ export default class ClassicAppSwitcherPrefs extends ExtensionPreferences {
             subtitle: _('Activate custom shortcuts for enhanced window management'),
         });
 
-        // Create info button with tooltip and popover
-        const infoButton = new Gtk.Button({
+        // Create info button using MenuButton (proper GTK pattern)
+        const infoButton = new Gtk.MenuButton({
             icon_name: getIconName('info-outline-symbolic'),
             tooltip_text: _('More Information'),
             valign: Gtk.Align.CENTER,
@@ -284,24 +284,11 @@ export default class ClassicAppSwitcherPrefs extends ExtensionPreferences {
 
         popoverBox.append(popoverLabel);
 
-        // Create popover
+        // Create popover and set it on the MenuButton
         const popover = new Gtk.Popover({
             child: popoverBox,
         });
-        popover.set_parent(infoButton);
-
-        // Connect button click to show popover
-        infoButton.connect('clicked', () => {
-            popover.popup();
-        });
-
-        popover.connect('show', () => {
-            infoButton.has_frame = true;
-        });
-
-        popover.connect('hide', () => {
-            infoButton.has_frame = false;
-        });
+        infoButton.set_popover(popover);
 
         // Create the switch manually
         const enableShortcutsSwitch = new Gtk.Switch({

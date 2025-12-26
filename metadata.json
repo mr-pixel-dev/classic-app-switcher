@@ -9,8 +9,8 @@
     "48",
     "49"
   ],
-  "version": 6,
-  "version-name": "2.0",
+  "version": 9,
+  "version-name": "2.1",
   "settings-schema": "org.gnome.shell.extensions.classic-app-switcher",
   "gettext-domain": "classic-app-switcher"
 }

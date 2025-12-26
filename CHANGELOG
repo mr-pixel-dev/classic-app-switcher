@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 We go to the next version after each release on the
 [GNOME Shell Extensions website] (https://extensions.gnome.org/).
 
+## [2.1] - 2025-12-26
+
+- Maintenance Update
+
+### Added
+
+- N/A
+
+### Fixed
+
+- Keyboard access preferences info-button pop-over clean-up on disable
+- Dialog windows now excluded from window-count badge
+- Hidden state app-list menu item styling improvements
+- Keyboard shortcut hint-text styling refinements
+
+### Removed
+
+- Utility window filter in app-list, now matches native Dash behaviour
+
 ## [2.0] - 2025-12-07
 
 - Updated Release for GNOME Shell 47, 48 & 49

@@ -261,9 +261,9 @@ const ClassicAppSwitcher = GObject.registerClass(
                 this._hideCurrentItem.label.get_parent().add_child(hideCurrentSpacer);
                 this._hideCurrentShortcut = new St.Label({
                     text: 'Super+H',
-                    style_class: 'kbd-hint',
                     y_align: Clutter.ActorAlign.CENTER
                 });
+                this._hideCurrentShortcut.set_opacity(153); // 60% opacity
                 this._hideCurrentItem.label.get_parent().add_child(this._hideCurrentShortcut);
             }
 
@@ -280,9 +280,9 @@ const ClassicAppSwitcher = GObject.registerClass(
                 this._hideOthersItem.label.get_parent().add_child(hideOthersSpacer);
                 this._hideOthersShortcut = new St.Label({
                     text: 'Alt+Super+H',
-                    style_class: 'kbd-hint',
                     y_align: Clutter.ActorAlign.CENTER
                 });
+                this._hideOthersShortcut.set_opacity(153); // 60% opacity
                 this._hideOthersItem.label.get_parent().add_child(this._hideOthersShortcut);
             }
 
@@ -308,9 +308,9 @@ const ClassicAppSwitcher = GObject.registerClass(
                 this._quitCurrentItem.label.get_parent().add_child(quitCurrentSpacer);
                 this._quitCurrentShortcut = new St.Label({
                     text: 'Super+Q',
-                    style_class: 'kbd-hint',
                     y_align: Clutter.ActorAlign.CENTER
                 });
+                this._quitCurrentShortcut.set_opacity(153); // 60% opacity
                 this._quitCurrentItem.label.get_parent().add_child(this._quitCurrentShortcut);
             }
 
@@ -331,231 +331,224 @@ const ClassicAppSwitcher = GObject.registerClass(
          * 3. Build the dynamic list of running applications in the menu
          */
         _buildApplicationList() {
-                // Clean up any previously added workspace indicator
-                if (this._workspaceItem) {
-                    this._workspaceItem.destroy();
-                    this._workspaceItem = null;
-                }
+            // Clean up any previously added workspace indicator
+            if (this._workspaceItem) {
+                this._workspaceItem.destroy();
+                this._workspaceItem = null;
+            }
 
-                // Remove existing application menu items (keep first 6: Hide, Hide Others, Show All, Separator, Quit, AppList Separator)
-                const items = this.menu._getMenuItems();
-                for (let i = items.length - 1; i > 5; i--) {
-                    items[i].destroy();
-                }
+            // Remove existing application menu items (keep first 6: Hide, Hide Others, Show All, Separator, Quit, AppList Separator)
+            const items = this.menu._getMenuItems();
+            for (let i = items.length - 1; i > 5; i--) {
+                items[i].destroy();
+            }
 
-                const workspace = global.workspace_manager.get_active_workspace();
-                const apps = new Set();
+            const workspace = global.workspace_manager.get_active_workspace();
+            const apps = new Set();
 
-                // Collect all normal windows on the current workspace
-                const windows = global.display.get_tab_list(Meta.TabList.NORMAL, workspace);
-                for (const win of windows) {
-                    // Skip non-normal windows
-                    if (win.get_window_type() !== Meta.WindowType.NORMAL) continue;
+            // Collect all normal windows on the current workspace
+            const windows = global.display.get_tab_list(Meta.TabList.NORMAL, workspace);
+            for (const win of windows) {
+                // Skip non-normal windows (dialogs, tooltips, etc.)
+                if (win.get_window_type() !== Meta.WindowType.NORMAL) continue;
 
-                    // Skip windows with skip-taskbar hint
-                    if (win.is_skip_taskbar()) continue;
+                // Skip windows with skip-taskbar hint
+                if (win.is_skip_taskbar()) continue;
 
-                    // Filter by window class for utility apps without .desktop files
-                    // Note: NautilusPreviewer and similar utilities may still appear
-                    // as this is also the behavior in GNOME's native dash
-                    const wmClass = win.get_wm_class();
-                    const utilityWmClasses = [
-                        'org.gnome.NautilusPreviewer',
-                        'Gnome-screenshot',
-                        'Gnome-font-viewer'
-                    ];
+                // Skip transient windows (dialogs) - they're grouped with their parent
+                if (win.get_transient_for() !== null) continue;
 
-                    if (utilityWmClasses.some(cls => wmClass && wmClass.includes(cls))) {
-                        continue;
-                    }
+                const app = Shell.WindowTracker.get_default().get_window_app(win);
+                if (!app) continue;
 
-                    const app = Shell.WindowTracker.get_default().get_window_app(win);
-                    if (!app) continue;
+                apps.add(app);
+            }
 
-                    apps.add(app);
-                }
+            // Keep apps in workspace stacking order (no sorting needed)
+            // Apps appear in the order their windows are stacked, which typically
+            // reflects launch order - first opened apps appear first
+            const sorted = Array.from(apps);
 
-                // Keep apps in workspace stacking order (no sorting needed)
-                // Apps appear in the order their windows are stacked, which typically
-                // reflects launch order - first opened apps appear first
-                const sorted = Array.from(apps);
+            const focusedApp = Shell.WindowTracker.get_default().focus_app;
 
-                const focusedApp = Shell.WindowTracker.get_default().focus_app;
-
-                // Add menu item for each application
-                for (const app of sorted) {
-                    const windowsOnWorkspace = app.get_windows().filter(
-                        w => w.get_workspace() === workspace
-                    );
-                    const windowCount = windowsOnWorkspace.length;
-                    const visibleCount = windowsOnWorkspace.filter(w => !w.minimized).length;
-
-                    // Build the display text with styled window count
-                    let displayText = app.get_name();
-
-                    // Create the menu item
-                    const item = new PopupMenu.PopupImageMenuItem(displayText, app.get_icon());
-
-                    // Set ellipsization for long app names in menu
-                    item.label.clutter_text.ellipsize = Pango.EllipsizeMode.END;
-
-                    // Add window count indicator if there are multiple windows
-                    if (windowCount > 1) {
-                        // Add a spacer to push the count to the right
-                        const spacer = new St.Widget({
-                            x_expand: true
-                        });
-                        item.label.get_parent().add_child(spacer);
-
-                        const countLabel = new St.Label({
-                            text: `${visibleCount}/${windowCount}`,
-                            style_class: 'window-count',
-                            y_align: Clutter.ActorAlign.CENTER
-                        });
-                        item.label.get_parent().add_child(countLabel);
-                    }
-
-                    // Handle application activation
-                    item.connect('activate', () => {
-                        this._activateApplication(app, workspace);
-                    });
-
-                    // Check if all windows are minimized
-                    const allMinimized = windowsOnWorkspace.every(w => w.minimized);
-
-                    // Style based on application state
-                    if (app === focusedApp) {
-                        // Current app: bold text + checkmark ornament
-                        item.label.set_opacity(255); // Full opacity
-                        const icon = item.child?.get_child_at_index?.(0);
-                        if (icon) {
-                            icon.set_opacity(255);
-                        }
-                        item.label.style = 'font-weight: 600;';
-                        item.setOrnament(PopupMenu.Ornament.CHECK);
-                    } else if (allMinimized) {
-                        // Hidden/minimized app: dim but keep clickable
-                        item.label.set_opacity(128); // 50% opacity
-                        const icon = item.child?.get_child_at_index?.(0);
-                        if (icon) {
-                            icon.set_opacity(128);
-                        }
-                        item.label.style = 'font-weight: 300;';
-                        item.add_style_class_name('all-minimized');
-                        item.setOrnament(PopupMenu.Ornament.NONE);
-                    } else {
-                        // Normal app: full opacity, no special styling
-                        item.label.set_opacity(255);
-                        const icon = item.child?.get_child_at_index?.(0);
-                        if (icon) {
-                            icon.set_opacity(255);
-                        }
-                        item.sensitive = true;
-                        item.setOrnament(PopupMenu.Ornament.NONE);
-                    }
-
-                    this.menu.addMenuItem(item);
-                }
-
-                // Handle "Hide Others" visibility/sensitivity
-                // Only show if there are OTHER APPS (not just other windows) with visible windows
-                const otherAppsWithVisibleWindows = windows.some(win => {
-                    const winApp = Shell.WindowTracker.get_default().get_window_app(win);
-                    return winApp !== focusedApp && !win.minimized;
+            // Add menu item for each application
+            for (const app of sorted) {
+                // Count only top-level windows for this app on this workspace
+                const appWindows = app.get_windows().filter(w => {
+                    return w.get_workspace() === workspace &&
+                        w.get_window_type() === Meta.WindowType.NORMAL &&
+                        w.get_transient_for() === null; // Skip transient/dialog windows
                 });
 
-                if (!otherAppsWithVisibleWindows) {
-                    this._hideOthersItem.visible = false;
-                } else {
-                    this._hideOthersItem.visible = true;
-                    this._hideOthersItem.sensitive = true;
+                const windowCount = appWindows.length;
+                const visibleCount = appWindows.filter(w => !w.minimized).length;
+
+                // Build the display text
+                let displayText = app.get_name();
+
+                // Create the menu item
+                const item = new PopupMenu.PopupImageMenuItem(displayText, app.get_icon());
+
+                // Set ellipsization for long app names in menu
+                item.label.clutter_text.ellipsize = Pango.EllipsizeMode.END;
+
+                // Add window count indicator if there are multiple windows
+                if (windowCount > 1) {
+                    // Add a spacer to push the count to the right
+                    const spacer = new St.Widget({
+                        x_expand: true
+                    });
+                    item.label.get_parent().add_child(spacer);
+
+                    const countLabel = new St.Label({
+                        text: `${visibleCount}/${windowCount}`,
+                        style_class: 'window-count',
+                        y_align: Clutter.ActorAlign.CENTER
+                    });
+                    item.label.get_parent().add_child(countLabel);
                 }
 
-                // Handle "Show All" visibility - check if any windows are minimized on current workspace
-                const hasMinimizedWindows = windows.some(win => win.minimized);
-                if (!hasMinimizedWindows) {
-                    this._showAllItem.visible = false;
+                // Handle application activation
+                item.connect('activate', () => {
+                    this._activateApplication(app, workspace);
+                });
+
+                // Check if all top-level windows are minimized (ignoring transients)
+                const allMinimized = appWindows.length > 0 && appWindows.every(w => w.minimized);
+
+                // Style based on application state
+                if (app === focusedApp) {
+                    // Current app: bold text + checkmark ornament
+                    item.label.style = 'font-weight: 600;';
+                    item.setOrnament(PopupMenu.Ornament.CHECK);
+                } else if (allMinimized) {
+                    // Hidden/minimized app: dim and desaturate
+                    item.label.set_opacity(128); // 50% opacity
+
+                    if (item._icon) {
+                        // Apply visual effects to indicate hidden state
+                        const desaturate = new Clutter.DesaturateEffect();
+                        desaturate.set_factor(0.50); // 50% desaturated
+
+                        const brightnessContrast = new Clutter.BrightnessContrastEffect();
+                        brightnessContrast.set_brightness(-0.10); // Dim by 10%
+                        brightnessContrast.set_contrast(-0.10); // Reduce contrast by 10%
+
+                        item._icon.add_effect(desaturate);
+                        item._icon.add_effect(brightnessContrast);
+                        item._icon.set_opacity(204); // 80% opacity
+                    }
+
+                    item.setOrnament(PopupMenu.Ornament.NONE);
+                    item.add_style_class_name('all-minimized');
                 } else {
-                    this._showAllItem.visible = true;
-                    this._showAllItem.sensitive = true;
+                    // Normal app: no special styling
+                    item.sensitive = true;
+                    item.setOrnament(PopupMenu.Ornament.NONE);
                 }
+
+                this.menu.addMenuItem(item);
+            }
+
+            // Handle "Hide Others" visibility/sensitivity
+            // Only show if there are OTHER APPS (not just other windows) with visible windows
+            const otherAppsWithVisibleWindows = windows.some(win => {
+                const winApp = Shell.WindowTracker.get_default().get_window_app(win);
+                return winApp !== focusedApp && !win.minimized;
+            });
+
+            if (!otherAppsWithVisibleWindows) {
+                this._hideOthersItem.visible = false;
+            } else {
+                this._hideOthersItem.visible = true;
+                this._hideOthersItem.sensitive = true;
+            }
+
+            // Handle "Show All" visibility - check if any windows are minimized on current workspace
+            const hasMinimizedWindows = windows.some(win => win.minimized);
+            if (!hasMinimizedWindows) {
+                this._showAllItem.visible = false;
+            } else {
+                this._showAllItem.visible = true;
+                this._showAllItem.sensitive = true;
+            }
         }
 
         /**
          * 4. Connect all necessary signals for tracking window and workspace changes
          */
         _connectSignals() {
-                // Track focus window changes
-                this._displayId = global.display.connect(
-                    'notify::focus-window',
-                    () => this._update()
-                );
+            // Track focus window changes
+            this._displayId = global.display.connect(
+                'notify::focus-window',
+                () => this._update()
+            );
 
-                // Track workspace changes
-                this._workspaceId = global.workspace_manager.connect(
-                    'active-workspace-changed',
-                    () => this._update()
-                );
+            // Track workspace changes
+            this._workspaceId = global.workspace_manager.connect(
+                'active-workspace-changed',
+                () => this._update()
+            );
 
-                // Track window creation/destruction
-                this._trackerId = Shell.WindowTracker.get_default().connect(
-                    'tracked-windows-changed',
-                    () => {
-                        // Use idle_add to prevent blocking the main thread
-                        GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
-                            this._update();
-                            return GLib.SOURCE_REMOVE;
-                        });
+            // Track window creation/destruction
+            this._trackerId = Shell.WindowTracker.get_default().connect(
+                'tracked-windows-changed',
+                () => {
+                    // Use idle_add to prevent blocking the main thread
+                    GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+                        this._update();
+                        return GLib.SOURCE_REMOVE;
+                    });
+                }
+            );
+
+            // Track settings changes
+            this._settingsChangedId = this._settings.connect(
+                'changed',
+                (settings, key) => {
+                    if (key === 'enable-keyboard-shortcuts') {
+                        // Reload extension to apply/remove shortcuts
+                        this._reloadShortcuts();
+                    } else if (key === 'show-menu-hints') {
+                        // Rebuild menu to show/hide hints
+                        this.menu.removeAll(); // Clear the menu first!
+                        this._buildMenu();
+                        this._update();
+                    } else {
+                        this._applySettings();
                     }
-                );
+                }
+            );
 
-                // Track settings changes
-                this._settingsChangedId = this._settings.connect(
-                    'changed',
-                    (settings, key) => {
-                        if (key === 'enable-keyboard-shortcuts') {
-                            // Reload extension to apply/remove shortcuts
-                            this._reloadShortcuts();
-                        } else if (key === 'show-menu-hints') {
-                            // Rebuild menu to show/hide hints
-                            this.menu.removeAll(); // Clear the menu first!
-                            this._buildMenu();
-                            this._update();
-                        } else {
-                            this._applySettings();
-                        }
-                    }
-                );
-
-                // Track app state changes for launch detection
-                this._appStateId = Shell.AppSystem.get_default().connect(
-                    'app-state-changed',
-                    (system, app) => {
-                        if (app.get_state() === Shell.AppState.STARTING) {
-                            this._pendingApp = app;
-                            this._update();
-                        }
-                    }
-                );
-
-                // Track Activities overview state for context-aware idle display
-                this._overviewShowingId = Main.overview.connect(
-                    'showing',
-                    () => {
-                        // Clear any active idle toggle timeout when entering Activities
-                        this._clearTimeout('_idleRevertTimeoutId');
+            // Track app state changes for launch detection
+            this._appStateId = Shell.AppSystem.get_default().connect(
+                'app-state-changed',
+                (system, app) => {
+                    if (app.get_state() === Shell.AppState.STARTING) {
+                        this._pendingApp = app;
                         this._update();
                     }
-                );
+                }
+            );
 
-                this._overviewHidingId = Main.overview.connect(
-                    'hidden',
-                    () => {
-                        // Clear any active idle toggle timeout when exiting Activities  
-                        this._clearTimeout('_idleRevertTimeoutId');
-                        this._update();
-                    }
-                );
+            // Track Activities overview state for context-aware idle display
+            this._overviewShowingId = Main.overview.connect(
+                'showing',
+                () => {
+                    // Clear any active idle toggle timeout when entering Activities
+                    this._clearTimeout('_idleRevertTimeoutId');
+                    this._update();
+                }
+            );
+
+            this._overviewHidingId = Main.overview.connect(
+                'hidden',
+                () => {
+                    // Clear any active idle toggle timeout when exiting Activities  
+                    this._clearTimeout('_idleRevertTimeoutId');
+                    this._update();
+                }
+            );
         }
 
         /**
@@ -635,87 +628,87 @@ const ClassicAppSwitcher = GObject.registerClass(
                 this.menu.close();
             }
 
-                const focusWindow = global.display.focus_window;
-                let app = focusWindow ?
-                    Shell.WindowTracker.get_default().get_window_app(focusWindow) :
-                    null;
+            const focusWindow = global.display.focus_window;
+            let app = focusWindow ?
+                Shell.WindowTracker.get_default().get_window_app(focusWindow) :
+                null;
 
-                // Flash fix: hold last known app during launch gap
-                if (app) {
-                    this._lastKnownApp = app;
-                    // Clear pending only when the NEW app (not the old one) gets focus
-                    if (this._pendingApp && app.get_id() === this._pendingApp.get_id()) {
-                        this._pendingApp = null;
-                    }
-                } else if (this._pendingApp && this._lastKnownApp) {
-                    app = this._lastKnownApp;
-                } else {
-                    this._lastKnownApp = null;
+            // Flash fix: hold last known app during launch gap
+            if (app) {
+                this._lastKnownApp = app;
+                // Clear pending only when the NEW app (not the old one) gets focus
+                if (this._pendingApp && app.get_id() === this._pendingApp.get_id()) {
+                    this._pendingApp = null;
                 }
+            } else if (this._pendingApp && this._lastKnownApp) {
+                app = this._lastKnownApp;
+            } else {
+                this._lastKnownApp = null;
+            }
 
-                if (app) {
-                    // Update icon and label for focused application
-                    this._icon.gicon = app.get_icon();
-                    this._label.text = app.get_name();
-                    // Translators: %s is the application name
-                    this._hideCurrentItem.label.text = _('Hide %s').format(app.get_name());
-                    // Translators: %s is the application name
-                    this._quitCurrentItem.label.text = _('Quit %s').format(app.get_name());
-                    // Translators: %s is the application name
-                    this.accessible_name = _('Application Switcher - %s').format(app.get_name());
+            if (app) {
+                // Update icon and label for focused application
+                this._icon.gicon = app.get_icon();
+                this._label.text = app.get_name();
+                // Translators: %s is the application name
+                this._hideCurrentItem.label.text = _('Hide %s').format(app.get_name());
+                // Translators: %s is the application name
+                this._quitCurrentItem.label.text = _('Quit %s').format(app.get_name());
+                // Translators: %s is the application name
+                this.accessible_name = _('Application Switcher - %s').format(app.get_name());
 
-                    // Show menu items when an app is focused
-                    this._hideCurrentItem.visible = true;
-                    this._hideCurrentItem.sensitive = true;
-                    this._topSeparator.visible = true;
-                    this._quitCurrentItem.visible = true;
-                    this._quitCurrentItem.sensitive = true;
-                    this._hideOthersItem.visible = true;
-                    this._showAllItem.visible = true;
+                // Show menu items when an app is focused
+                this._hideCurrentItem.visible = true;
+                this._hideCurrentItem.sensitive = true;
+                this._topSeparator.visible = true;
+                this._quitCurrentItem.visible = true;
+                this._quitCurrentItem.sensitive = true;
+                this._hideOthersItem.visible = true;
+                this._showAllItem.visible = true;
+            } else {
+                // No focused application - check if there are hidden apps
+                const workspace = global.workspace_manager.get_active_workspace();
+                const windows = global.display.get_tab_list(Meta.TabList.NORMAL, workspace);
+                const hasAnyApps = windows.some(win => {
+                    if (win.get_window_type() !== Meta.WindowType.NORMAL) return false;
+                    if (win.is_skip_taskbar()) return false;
+                    const winApp = Shell.WindowTracker.get_default().get_window_app(win);
+                    return winApp !== null;
+                });
+
+                if (hasAnyApps) {
+                    // There are hidden apps - ALWAYS show "Desktop" (even in Activities)
+                    // This keeps the menu functional and provides visual continuity
+                    const iconPath = this._extension.path + '/icons/user-desktop-symbolic.svg';
+                    this._icon.gicon = Gio.icon_new_for_string(iconPath);
+                    this._label.text = _('Desktop');
+                    this.accessible_name = _('Application Switcher - Desktop');
                 } else {
-                    // No focused application - check if there are hidden apps
-                    const workspace = global.workspace_manager.get_active_workspace();
-                    const windows = global.display.get_tab_list(Meta.TabList.NORMAL, workspace);
-                    const hasAnyApps = windows.some(win => {
-                        if (win.get_window_type() !== Meta.WindowType.NORMAL) return false;
-                        if (win.is_skip_taskbar()) return false;
-                        const winApp = Shell.WindowTracker.get_default().get_window_app(win);
-                        return winApp !== null;
-                    });
+                    // Truly no apps - show context-aware idle state
+                    const inOverview = Main.overview._visible;
 
-                    if (hasAnyApps) {
-                        // There are hidden apps - ALWAYS show "Desktop" (even in Activities)
-                        // This keeps the menu functional and provides visual continuity
-                        const iconPath = this._extension.path + '/icons/user-desktop-symbolic.svg';
-                        this._icon.gicon = Gio.icon_new_for_string(iconPath);
-                        this._label.text = _('Desktop');
-                        this.accessible_name = _('Application Switcher - Desktop');
+                    // Reset toggle state when transitioning to/from Activities
+                    if (inOverview) {
+                        // In Activities: default to showing workspace number
+                        this._showingWorkspaceNumber = true;
                     } else {
-                        // Truly no apps - show context-aware idle state
-                        const inOverview = Main.overview._visible;
-
-                        // Reset toggle state when transitioning to/from Activities
-                        if (inOverview) {
-                            // In Activities: default to showing workspace number
-                            this._showingWorkspaceNumber = true;
-                        } else {
-                            // On Desktop: default to showing "Desktop"
-                            this._showingWorkspaceNumber = false;
-                        }
-
-                        this._updateIdleDisplay();
+                        // On Desktop: default to showing "Desktop"
+                        this._showingWorkspaceNumber = false;
                     }
 
-                    // Hide menu items when on desktop (no focused app)
-                    this._hideCurrentItem.visible = false;
-                    this._topSeparator.visible = false;
-                    this._quitCurrentItem.visible = false;
-                    this._hideOthersItem.visible = false;
-                    this._showAllItem.visible = false;
+                    this._updateIdleDisplay();
                 }
 
-                // Rebuild the application list in the menu
-                this._buildApplicationList();
+                // Hide menu items when on desktop (no focused app)
+                this._hideCurrentItem.visible = false;
+                this._topSeparator.visible = false;
+                this._quitCurrentItem.visible = false;
+                this._hideOthersItem.visible = false;
+                this._showAllItem.visible = false;
+            }
+
+            // Rebuild the application list in the menu
+            this._buildApplicationList();
         }
 
         /**
@@ -724,125 +717,125 @@ const ClassicAppSwitcher = GObject.registerClass(
          * @param {Meta.Workspace} workspace - The current workspace
          */
         _activateApplication(app, workspace) {
-                // Get windows in proper stacking order from the display
-                const allWindowsInStack = global.display.get_tab_list(Meta.TabList.NORMAL, workspace);
+            // Get windows in proper stacking order from the display
+            const allWindowsInStack = global.display.get_tab_list(Meta.TabList.NORMAL, workspace);
 
-                // Filter to only this app's windows on this workspace
-                const windows = allWindowsInStack.filter(w =>
-                    app.get_windows().includes(w) && w.get_workspace() === workspace
-                );
+            // Filter to only this app's windows on this workspace
+            const windows = allWindowsInStack.filter(w =>
+                app.get_windows().includes(w) && w.get_workspace() === workspace
+            );
 
-                if (windows.length === 0) return;
+            if (windows.length === 0) return;
 
-                // Sort by user time (most recent first) - but starting from stable stacking order
-                windows.sort((a, b) => b.get_user_time() - a.get_user_time());
+            // Sort by user time (most recent first) - but starting from stable stacking order
+            windows.sort((a, b) => b.get_user_time() - a.get_user_time());
 
-                // Separate minimized and visible windows
-                const minimizedWindows = windows.filter(w => w.minimized);
-                const visibleWindows = windows.filter(w => !w.minimized);
+            // Separate minimized and visible windows
+            const minimizedWindows = windows.filter(w => w.minimized);
+            const visibleWindows = windows.filter(w => !w.minimized);
 
-                if (minimizedWindows.length > 0) {
-                    // If there are minimized windows, restore them all
-                    minimizedWindows.forEach(win => win.unminimize());
+            if (minimizedWindows.length > 0) {
+                // If there are minimized windows, restore them all
+                minimizedWindows.forEach(win => win.unminimize());
 
-                    // Activate in reverse order (oldest first) to build proper stack
-                    for (let i = minimizedWindows.length - 1; i >= 0; i--) {
-                        Main.activateWindow(minimizedWindows[i], global.get_current_time());
-                    }
-
-                    // Finally activate the most recent one
-                    if (minimizedWindows[0]) {
-                        Main.activateWindow(minimizedWindows[0], global.get_current_time());
-                    }
-                } else if (visibleWindows.length > 1) {
-                    // Multiple visible windows - raise them all to front
-                    // Activate in reverse order (oldest first) to build proper stack
-                    for (let i = visibleWindows.length - 1; i >= 0; i--) {
-                        Main.activateWindow(visibleWindows[i], global.get_current_time());
-                    }
-
-                    // Finally activate the most recent one on top
-                    if (visibleWindows[0]) {
-                        Main.activateWindow(visibleWindows[0], global.get_current_time());
-                    }
-                } else {
-                    // Single visible window, just activate it
-                    Main.activateWindow(windows[0], global.get_current_time());
+                // Activate in reverse order (oldest first) to build proper stack
+                for (let i = minimizedWindows.length - 1; i >= 0; i--) {
+                    Main.activateWindow(minimizedWindows[i], global.get_current_time());
                 }
 
-                // Force menu refresh to update list order and checkmark
-                this._clearTimeout('_updateTimeoutId');
-                this._updateTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 100, () => {
-                    this._update();
-                    this._updateTimeoutId = null;
-                    return GLib.SOURCE_REMOVE;
-                });
+                // Finally activate the most recent one
+                if (minimizedWindows[0]) {
+                    Main.activateWindow(minimizedWindows[0], global.get_current_time());
+                }
+            } else if (visibleWindows.length > 1) {
+                // Multiple visible windows - raise them all to front
+                // Activate in reverse order (oldest first) to build proper stack
+                for (let i = visibleWindows.length - 1; i >= 0; i--) {
+                    Main.activateWindow(visibleWindows[i], global.get_current_time());
+                }
+
+                // Finally activate the most recent one on top
+                if (visibleWindows[0]) {
+                    Main.activateWindow(visibleWindows[0], global.get_current_time());
+                }
+            } else {
+                // Single visible window, just activate it
+                Main.activateWindow(windows[0], global.get_current_time());
+            }
+
+            // Force menu refresh to update list order and checkmark
+            this._clearTimeout('_updateTimeoutId');
+            this._updateTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 100, () => {
+                this._update();
+                this._updateTimeoutId = null;
+                return GLib.SOURCE_REMOVE;
+            });
         }
 
         /**
          * 8-1. Hide all windows of the currently focused application on current workspace (Using 'Hide' in menu or Super+H)
          */
         _hideCurrentApp() {
-                const focusedApp = Shell.WindowTracker.get_default().focus_app;
-                if (!focusedApp) return;
+            const focusedApp = Shell.WindowTracker.get_default().focus_app;
+            if (!focusedApp) return;
 
-                const workspace = global.workspace_manager.get_active_workspace();
+            const workspace = global.workspace_manager.get_active_workspace();
 
-                // Track which windows we're hiding so we can restore ONLY these
-                this._lastHiddenWindows = [];
-                this._lastHiddenApp = focusedApp;
+            // Track which windows we're hiding so we can restore ONLY these
+            this._lastHiddenWindows = [];
+            this._lastHiddenApp = focusedApp;
 
-                focusedApp.get_windows().forEach(win => {
-                    if (!win.minimized && win.get_workspace() === workspace) {
-                        this._lastHiddenWindows.push(win);
-                        win.minimize();
-                    }
-                });
+            focusedApp.get_windows().forEach(win => {
+                if (!win.minimized && win.get_workspace() === workspace) {
+                    this._lastHiddenWindows.push(win);
+                    win.minimize();
+                }
+            });
         }
 
         /**
          * 8-2. Show the most recently hidden application on current workspace (via Super+U)
          */
         _showRecentApp() {
-                // Check if we have tracked hidden windows
-                if (!this._lastHiddenWindows || this._lastHiddenWindows.length === 0) {
-                    // No specifically hidden windows to restore
-                    return;
-                }
+            // Check if we have tracked hidden windows
+            if (!this._lastHiddenWindows || this._lastHiddenWindows.length === 0) {
+                // No specifically hidden windows to restore
+                return;
+            }
 
-                const workspace = global.workspace_manager.get_active_workspace();
+            const workspace = global.workspace_manager.get_active_workspace();
 
-                // Filter to only windows that are still minimized and on current workspace
-                const windowsToRestore = this._lastHiddenWindows.filter(win => {
-                    return win?.minimized && win?.get_workspace() === workspace;
-                });
+            // Filter to only windows that are still minimized and on current workspace
+            const windowsToRestore = this._lastHiddenWindows.filter(win => {
+                return win?.minimized && win?.get_workspace() === workspace;
+            });
 
-                if (windowsToRestore.length === 0) {
-                    // All tracked windows are already visible or destroyed
-                    this._lastHiddenWindows = [];
-                    this._lastHiddenApp = null;
-                    return;
-                }
-
-                // Restore the windows we specifically hid
-                windowsToRestore.forEach(win => win.unminimize());
-
-                // Sort by user time and activate
-                windowsToRestore.sort((a, b) => b.get_user_time() - a.get_user_time());
-
-                // Activate in reverse order (oldest first) to build proper stack
-                for (let i = windowsToRestore.length - 1; i >= 0; i--) {
-                    Main.activateWindow(windowsToRestore[i], global.get_current_time());
-                }
-
-                // Finally activate the most recent one on top
-                if (windowsToRestore[0]) {
-                    Main.activateWindow(windowsToRestore[0], global.get_current_time());
-                }
-
-                // Clear the tracking since we've restored them
+            if (windowsToRestore.length === 0) {
+                // All tracked windows are already visible or destroyed
                 this._lastHiddenWindows = [];
                 this._lastHiddenApp = null;
+                return;
+            }
+
+            // Restore the windows we specifically hid
+            windowsToRestore.forEach(win => win.unminimize());
+
+            // Sort by user time and activate
+            windowsToRestore.sort((a, b) => b.get_user_time() - a.get_user_time());
+
+            // Activate in reverse order (oldest first) to build proper stack
+            for (let i = windowsToRestore.length - 1; i >= 0; i--) {
+                Main.activateWindow(windowsToRestore[i], global.get_current_time());
+            }
+
+            // Finally activate the most recent one on top
+            if (windowsToRestore[0]) {
+                Main.activateWindow(windowsToRestore[0], global.get_current_time());
+            }
+
+            // Clear the tracking since we've restored them
+            this._lastHiddenWindows = [];
+            this._lastHiddenApp = null;
 
         }
 
@@ -850,48 +843,48 @@ const ClassicAppSwitcher = GObject.registerClass(
          * 8-3. Hide all applications except the currently focused application on the current workspace ('Hide Others' in menu or via Alt+Super+H)
          */
         _hideOthers() {
-                const focusedApp = Shell.WindowTracker.get_default().focus_app;
-                if (!focusedApp) return;
+            const focusedApp = Shell.WindowTracker.get_default().focus_app;
+            if (!focusedApp) return;
 
-                const workspace = global.workspace_manager.get_active_workspace();
-                const allWindows = global.display.get_tab_list(Meta.TabList.NORMAL, workspace);
+            const workspace = global.workspace_manager.get_active_workspace();
+            const allWindows = global.display.get_tab_list(Meta.TabList.NORMAL, workspace);
 
-                allWindows.forEach(win => {
-                    const winApp = Shell.WindowTracker.get_default().get_window_app(win);
-                    if (winApp !== focusedApp && !win.minimized) {
-                        win.minimize();
-                    }
-                });
+            allWindows.forEach(win => {
+                const winApp = Shell.WindowTracker.get_default().get_window_app(win);
+                if (winApp !== focusedApp && !win.minimized) {
+                    win.minimize();
+                }
+            });
         }
 
         /**
          * 8-4. Show all (hidden/minimized) applications and windows on the current workspace ('Show All' in menu or via Alt+Super+U)
          */
         _showAll() {
-                const workspace = global.workspace_manager.get_active_workspace();
-                const allWindows = global.display.get_tab_list(Meta.TabList.NORMAL, workspace);
+            const workspace = global.workspace_manager.get_active_workspace();
+            const allWindows = global.display.get_tab_list(Meta.TabList.NORMAL, workspace);
 
-                // Get all minimized windows
-                const minimizedWindows = allWindows.filter(win => win.minimized);
+            // Get all minimized windows
+            const minimizedWindows = allWindows.filter(win => win.minimized);
 
-                if (minimizedWindows.length === 0) return;
+            if (minimizedWindows.length === 0) return;
 
-                // Sort by user time (most recent first)
-                minimizedWindows.sort((a, b) => b.get_user_time() - a.get_user_time());
+            // Sort by user time (most recent first)
+            minimizedWindows.sort((a, b) => b.get_user_time() - a.get_user_time());
 
-                // Unminimize all windows first
-                minimizedWindows.forEach(win => win.unminimize());
+            // Unminimize all windows first
+            minimizedWindows.forEach(win => win.unminimize());
 
-                // Now raise them in reverse order (oldest first) by activating each
-                // This forces proper stacking - each activation brings that window to front
-                for (let i = minimizedWindows.length - 1; i >= 0; i--) {
-                    Main.activateWindow(minimizedWindows[i], global.get_current_time());
-                }
+            // Now raise them in reverse order (oldest first) by activating each
+            // This forces proper stacking - each activation brings that window to front
+            for (let i = minimizedWindows.length - 1; i >= 0; i--) {
+                Main.activateWindow(minimizedWindows[i], global.get_current_time());
+            }
 
-                // Finally, ensure the most recent one ends up on top with focus
-                if (minimizedWindows[0]) {
-                    Main.activateWindow(minimizedWindows[0], global.get_current_time());
-                }
+            // Finally, ensure the most recent one ends up on top with focus
+            if (minimizedWindows[0]) {
+                Main.activateWindow(minimizedWindows[0], global.get_current_time());
+            }
         }
 
         /**
@@ -946,11 +939,11 @@ const ClassicAppSwitcher = GObject.registerClass(
          * 8-8. Quit the currently focused application on the current workspace (via Super+Q)
          */
         _quitCurrentApp() {
-                const focusedApp = Shell.WindowTracker.get_default().focus_app;
-                if (!focusedApp) return;
+            const focusedApp = Shell.WindowTracker.get_default().focus_app;
+            if (!focusedApp) return;
 
-                // Request the application to quit gracefully
-                focusedApp.request_quit();
+            // Request the application to quit gracefully
+            focusedApp.request_quit();
         }
 
         /**
@@ -1060,38 +1053,38 @@ const ClassicAppSwitcher = GObject.registerClass(
          * 10. Apply user preferences from settings
          */
         _applySettings() {
-                // Update label visibility
-                this._label.visible = this._settings.get_boolean('show-label');
+            // Update label visibility
+            this._label.visible = this._settings.get_boolean('show-label');
 
-                // Get desired panel position
-                const desiredBox = this._settings.get_string('panel-box') || 'right';
-                const desiredPos = Math.max(0, this._settings.get_int('position-in-box') || 0);
+            // Get desired panel position
+            const desiredBox = this._settings.get_string('panel-box') || 'right';
+            const desiredPos = Math.max(0, this._settings.get_int('position-in-box') || 0);
 
-                // Map setting names to actual panel boxes
-                const boxMap = {
-                    'left': Main.panel._leftBox,
-                    'center': Main.panel._centerBox,
-                    'right': Main.panel._rightBox
-                };
+            // Map setting names to actual panel boxes
+            const boxMap = {
+                'left': Main.panel._leftBox,
+                'center': Main.panel._centerBox,
+                'right': Main.panel._rightBox
+            };
 
-                const targetBox = boxMap[desiredBox] || boxMap['right'];
-                const currentParent = this.get_parent();
+            const targetBox = boxMap[desiredBox] || boxMap['right'];
+            const currentParent = this.get_parent();
 
-                // Reposition if necessary
-                if (currentParent !== targetBox) {
-                    // Moving to a different panel box
-                    if (currentParent) {
-                        currentParent.remove_child(this);
-                    }
-                    targetBox.insert_child_at_index(this, desiredPos);
-                } else if (currentParent) {
-                    // Same box, check if position needs adjustment
-                    const currentPos = currentParent.get_children().indexOf(this);
-                    if (currentPos !== desiredPos && desiredPos < currentParent.get_children().length) {
-                        currentParent.remove_child(this);
-                        targetBox.insert_child_at_index(this, desiredPos);
-                    }
+            // Reposition if necessary
+            if (currentParent !== targetBox) {
+                // Moving to a different panel box
+                if (currentParent) {
+                    currentParent.remove_child(this);
                 }
+                targetBox.insert_child_at_index(this, desiredPos);
+            } else if (currentParent) {
+                // Same box, check if position needs adjustment
+                const currentPos = currentParent.get_children().indexOf(this);
+                if (currentPos !== desiredPos && desiredPos < currentParent.get_children().length) {
+                    currentParent.remove_child(this);
+                    targetBox.insert_child_at_index(this, desiredPos);
+                }
+            }
         }
 
         /**

@@ -37,35 +37,21 @@
     icon-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
-/* Remove shadow from icon if all app windows are minimized */
-.classic-app-switcher-menu .popup-menu-item.all-minimized .popup-menu-icon {
-    icon-shadow: none !important;
-}
-
-/* Remove shadow from icon if menu-item is insensitive */
-.classic-app-switcher-menu .popup-menu-item:insensitive .popup-menu-icon {
-    icon-shadow: none !important;
-}
-
 .classic-app-switcher-menu .popup-menu-item .window-count {
     border-radius: 999px;
     min-width: 1.75em;
-    background-color: -st-accent-color !important;
+    background-color: -st-accent-color;
     padding: 0 0.409em;
     font-size: 0.818em;
     font-variant-numeric: tabular-nums;
     font-weight: 700;
     text-align: center;
-    color: #ffffff;
-    border: 1px solid rgba(255, 255, 255, 0.02);
+    color: -st-accent-fg-color;
+    border: 1px solid transparent;
 }
 
 /* Dim window-count badge styling if all app windows are minimized */
 .classic-app-switcher-menu .popup-menu-item.all-minimized .window-count {
-    background-color: st-transparentize(-st-accent-color, 0.5) !important;
-}
-
-.classic-app-switcher-menu .popup-menu-item .kbd-hint {
-    color: #9a9996;
-    /* GNOME standard insensitive text - works light and dark */
+    background-color: st-transparentize(st-mix(-st-accent-color, #4a4a4f, 85%), 0.5);
+    color: st-transparentize(-st-accent-fg-color, 0.2);
 }

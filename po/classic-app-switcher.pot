@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Classic App Switcher 2.0\n"
 "Report-Msgid-Bugs-To: https://github.com/mr-pixel-dev/classic-app-switcher/issues\n"
-"POT-Creation-Date: 2025-12-07 12:00+0000\n"
+"POT-Creation-Date: 2025-12-26 12:00+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: Mr Pixel <mr-pixel-dev@users.noreply.github.com>\n"
 "Language-Team: LANGUAGE <mr-pixel-dev@users.noreply.github.com>\n"
@@ -40,28 +40,28 @@ msgid "Open Applications"
 msgstr ""
 
 #. Translators: %d is the workspace number
-#: extension.js:578 extension.js:594
+#: extension.js:571 extension.js:587
 #, javascript-format
 msgid "Workspace %d"
 msgstr ""
 
-#: extension.js:600 extension.js:691
+#: extension.js:593 extension.js:684
 msgid "Desktop"
 msgstr ""
 
 #. Translators: %s is the application name
-#: extension.js:661
+#: extension.js:654
 #, javascript-format
 msgid "Hide %s"
 msgstr ""
 
 #. Translators: %s is the application name
-#: extension.js:663
+#: extension.js:656
 #, javascript-format
 msgid "Quit %s"
 msgstr ""
 
-#: extension.js:584
+#: extension.js:577
 msgid "No Applications"
 msgstr ""
 
@@ -69,22 +69,22 @@ msgstr ""
 msgid "Application Switcher"
 msgstr ""
 
-#: extension.js:601 extension.js:692
+#: extension.js:594 extension.js:685
 msgid "Application Switcher - Desktop"
 msgstr ""
 
 #. Translators: %d is the workspace number
-#: extension.js:579 extension.js:595
+#: extension.js:572 extension.js:588
 #, javascript-format
 msgid "Application Switcher - Workspace %d"
 msgstr ""
 
-#: extension.js:585
+#: extension.js:578
 msgid "Application Switcher - No Applications"
 msgstr ""
 
 #. Translators: %s is the application name
-#: extension.js:665
+#: extension.js:658
 #, javascript-format
 msgid "Application Switcher - %s"
 msgstr ""
@@ -185,75 +185,75 @@ msgstr ""
 msgid "🪤 Super+H and Super+M will be temporarily remapped while this option is enabled. To access the notification list please use Super+V which is the official shortcut shown in GNOME Settings. 🐁"
 msgstr ""
 
-#: prefs.js:326
+#: prefs.js:313
 msgid "Keyboard shortcuts enabled"
 msgstr ""
 
-#: prefs.js:327
+#: prefs.js:314
 msgid "Keyboard shortcuts disabled"
 msgstr ""
 
-#: prefs.js:361
+#: prefs.js:348
 msgid "Show Menu Hints"
 msgstr ""
 
-#: prefs.js:362
+#: prefs.js:349
 msgid "Display shortcut key labels next to menu items"
 msgstr ""
 
-#: prefs.js:383
+#: prefs.js:370
 msgid "Configuration"
 msgstr ""
 
-#: prefs.js:384
+#: prefs.js:371
 msgid "The following shortcuts are available when enabled above"
 msgstr ""
 
-#: prefs.js:391
+#: prefs.js:378
 msgid "Hide the current application<sup>*</sup>"
 msgstr ""
 
-#: prefs.js:392
+#: prefs.js:379
 msgid "Assigned to <b>Hide window</b> by default"
 msgstr ""
 
-#: prefs.js:397 schemas/org.gnome.shell.extensions.classic-app-switcher.gschema.xml:42
+#: prefs.js:384 schemas/org.gnome.shell.extensions.classic-app-switcher.gschema.xml:42
 msgid "Hide all other applications"
 msgstr ""
 
-#: prefs.js:402 schemas/org.gnome.shell.extensions.classic-app-switcher.gschema.xml:47
+#: prefs.js:389 schemas/org.gnome.shell.extensions.classic-app-switcher.gschema.xml:47
 msgid "Show most recently hidden application"
 msgstr ""
 
-#: prefs.js:407 schemas/org.gnome.shell.extensions.classic-app-switcher.gschema.xml:52
+#: prefs.js:394 schemas/org.gnome.shell.extensions.classic-app-switcher.gschema.xml:52
 msgid "Show all hidden applications/windows"
 msgstr ""
 
-#: prefs.js:412
+#: prefs.js:399
 msgid "Minimize the current window<sup>*</sup>"
 msgstr ""
 
-#: prefs.js:413
+#: prefs.js:400
 msgid "Assigned to <b>Show the notification list</b> by default"
 msgstr ""
 
-#: prefs.js:418 schemas/org.gnome.shell.extensions.classic-app-switcher.gschema.xml:62
+#: prefs.js:405 schemas/org.gnome.shell.extensions.classic-app-switcher.gschema.xml:62
 msgid "Unminimize most recently minimized window"
 msgstr ""
 
-#: prefs.js:423 schemas/org.gnome.shell.extensions.classic-app-switcher.gschema.xml:67
+#: prefs.js:410 schemas/org.gnome.shell.extensions.classic-app-switcher.gschema.xml:67
 msgid "Close the current window"
 msgstr ""
 
-#: prefs.js:428 schemas/org.gnome.shell.extensions.classic-app-switcher.gschema.xml:72
+#: prefs.js:415 schemas/org.gnome.shell.extensions.classic-app-switcher.gschema.xml:72
 msgid "Quit the current application"
 msgstr ""
 
-#: prefs.js:547
+#: prefs.js:534
 msgid "Activating this option will override GNOME <sup>*</sup>default system shortcuts"
 msgstr ""
 
-#: prefs.js:548
+#: prefs.js:535
 msgid "All shortcuts will be restored to their defaults when this option is deactivated and if this extension is disabled or removed"
 msgstr ""
 
