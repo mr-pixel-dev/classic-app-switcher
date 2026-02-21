@@ -1,0 +1,88 @@
+/* Classic App Switcher Styles */
+.classic-app-switcher .classic-switcher-box {
+    padding: 0 0.409em;
+    spacing: 0.409em;
+}
+
+.classic-app-switcher .classic-switcher-icon {
+    icon-size: 1.091em;
+    -st-icon-style: symbolic;
+}
+
+.classic-app-switcher .classic-switcher-icon:first-child:last-child {
+    margin: 0 0.2500em;
+}
+
+.classic-app-switcher .classic-switcher-label {
+    max-width: 10.25em;
+}
+
+/* Classic App Switcher Pop-up Menu Styles */
+.classic-app-switcher-menu, .classic-app-switcher-context-menu {
+    max-width: 20.45em;
+}
+
+.classic-app-switcher-menu .popup-menu-item, .classic-app-switcher-context-menu .popup-menu-item {}
+
+.classic-app-switcher-menu .popup-separator-menu-item StLabel, .classic-app-switcher-context-menu .popup-separator-menu-item StLabel {
+    font-weight: 700;
+    font-size: 0.818em;
+}
+
+.classic-app-switcher-menu .popup-separator-menu-item StLabel:ltr, .classic-app-switcher-context-menu .popup-separator-menu-item StLabel:ltr {
+    margin-right: 8px;
+}
+
+.classic-app-switcher-menu .popup-separator-menu-item StLabel:rtl, .classic-app-switcher-context-menu .popup-separator-menu-item StLabel:rtl {
+    margin-left: 8px;
+}
+
+.classic-app-switcher-menu .popup-menu-item .popup-menu-icon {
+    icon-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.classic-app-switcher-context-menu .window-list-scrollview .popup-menu-item .popup-menu-icon {
+    -st-icon-style: symbolic; 
+    icon-size: 0.5455em;
+    padding: 0 0.2045em;
+}
+
+/* Window-count badge */
+.classic-app-switcher-menu .popup-menu-item .window-count {
+    border-radius: 999px;
+    min-width: 1.5em;
+    background: #3584e4, -st-accent-color;
+    padding: 0 0.409em;
+    font-size: 0.818em;
+    font-feature-settings: "tnum";
+    font-weight: 700;
+    color: -st-accent-fg-color;
+    border: 1px solid transparent;
+}
+
+/* Dim window-count badge styling if all app windows are minimized */
+.classic-app-switcher-menu .popup-menu-item.all-minimized .window-count {
+    background-color: st-transparentize(st-mix(-st-accent-color, #4a4a4f, 85%), 0.5);
+    color: st-transparentize(-st-accent-fg-color, 0.2);
+}
+
+/* Scrollable list - fade effect instead of scrollbar */
+.classic-app-switcher-menu .app-list-scrollview, .classic-app-switcher-context-menu .window-list-scrollview {
+    -st-vfade-offset: 2.3750em;
+}
+
+/* Popup-menu boxpointer arrow */
+.classic-app-switcher-menu.popup-menu-boxpointer, .classic-app-switcher-context-menu.popup-menu-boxpointer {
+    -arrow-rise: 10px;
+    -arrow-base: 20px;
+    -arrow-border-radius: 20px;
+    -arrow-background-color: #fafafb;
+    -arrow-border-width: 1px;
+    -arrow-border-color: #dedee4;
+    -boxpointer-gap: 4px;
+}
+
+/* Hide boxpointer arrow when toggle is enabled */
+.classic-app-switcher-menu.popup-menu-boxpointer.hide-boxpointer, .classic-app-switcher-context-menu.popup-menu-boxpointer.hide-boxpointer {
+    -arrow-rise: 0px;
+}

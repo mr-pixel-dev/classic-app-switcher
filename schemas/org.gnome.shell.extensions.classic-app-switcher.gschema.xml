@@ -6,6 +6,11 @@
       <summary>Show application name</summary>
       <description>Display the name of the currently focused application next to its icon in the panel</description>
     </key>
+    <key name="hide-boxpointer" type="b">
+      <default>false</default>
+      <summary>Hide boxpointer</summary>
+      <description>Do not show the menu arrow</description>
+    </key>
     <key name="panel-box" type="s">
       <default>'right'</default>
       <choices>
@@ -71,6 +76,22 @@
       <default><![CDATA[['<Super>q']]]></default>
       <summary>Quit the current application</summary>
       <description>Quits the currently focused application</description>
+    </key>
+    <key name="hide-windows-from-overview" type="b">
+      <default>false</default>
+      <summary>Hide windows from Activities Overview</summary>
+      <description>When enabled, windows hidden with Super+H or Hide Others won't appear 
+    in Activities overview. This provides true "hide" functionality separate 
+    from minimize.</description>
+    </key>
+    <key name="enable-overview-effects" type="b">
+      <default>false</default>
+      <summary>Enable Overview Effects</summary>
+      <description>Apply visual effects to windows in Activities Overview for improved clarity.
+    When enabled:
+    - Hidden windows appear fully greyscale (complete desaturation with darker appearance)
+    - Minimized windows appear subtly greyscale (slight desaturation with lighter appearance)
+    This helps distinguish between hidden, minimized, unfocused, and focused windows.</description>
     </key>
   </schema>
 </schemalist>

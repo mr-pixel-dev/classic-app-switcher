@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gresources>
+  <gresource prefix="/org/gnome/shell/extensions/classic-app-switcher/icons/scalable/actions/">
+    <file preprocess="xml-stripblanks">happy-computer-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">github-logo-symbolic.svg</file>   
+    <file preprocess="xml-stripblanks">dialog-information-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">dialog-warning-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">diamond-filled-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">diamond-outline-thick-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">focus-top-bar-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">info-outline-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">keyboard-shortcuts-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">license-copyright-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">license-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">shell-overview-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">system-run-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">user-accessibility-symbolic.svg</file>
+    <file preprocess="xml-stripblanks">user-desktop-symbolic.svg</file>     
+  </gresource>
+</gresources>

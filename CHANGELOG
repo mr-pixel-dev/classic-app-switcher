@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 We go to the next version after each release on the
 [GNOME Shell Extensions website] (https://extensions.gnome.org/).
 
+## [3.0] - 2026-02-16
+
+- Updated Release for GNOME Shell 46, 47, 48, 49 & 50
+- Complete refactor and modular build
+- Improved JSDoc commenting
+
+### Added
+
+- Dash App Menu and Action List now accessible via panel indicator right-click context menu
+- Workspace Switcher (Application and Single Window via context menu)
+- Overview Effects for minimized and hidden window states (Optional)
+- Exclude Hidden Application Windows from Overview (Optional)
+- Middle-Click panel indicator to quick launch new window in supported apps
+- Boxpointer menu arrow (Optional)
+- GResource-based icons
+- Dynamic menu height calculation and ScrollView-based app and window lists
+- Re-added GNOME 50 support
+
+### Fixed
+
+- Window stacking order when using Super+U to unhide an app
+- Panel indicator sticking when changing background or accessing Display Settings via GNOME Background Menu
+- Idle-state toggle animation on GNOME 50
+- Preferences logo re-coloring in dark mode
+
+### Removed
+
+- Icons directory `/icons/` no longer required
+
+### Notes
+
+- GNOME 50 support restored after refactor resolved upstream issues
+- Extended support to include GNOME 46 and 47
+- Recommended update for all users on GNOME 46-50
+
 ## [2.1] - 2025-12-26
 
 - Maintenance Update

@@ -1,12 +1,14 @@
 # Classic App Switcher - Translation Template
 # Copyright (C) 2025 Classic App Switcher Contributors
 # This file is distributed under the same license as the Classic App Switcher package.
+# FIRST AUTHOR <mr-pixel-dev@users.noreply.github.com>, 2026.
 #
+#, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: Classic App Switcher 2.0\n"
-"Report-Msgid-Bugs-To: https://github.com/mr-pixel-dev/classic-app-switcher/issues\n"
-"POT-Creation-Date: 2025-12-26 12:00+0000\n"
+"Project-Id-Version: Classic App Switcher 3.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-02-16 23:46+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: Mr Pixel <mr-pixel-dev@users.noreply.github.com>\n"
 "Language-Team: LANGUAGE <mr-pixel-dev@users.noreply.github.com>\n"
@@ -15,324 +17,384 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: extension.js:28 prefs.js:73
-msgid "Classic App Switcher"
+#: contextMenu.js:108
+msgid "App Settings"
 msgstr ""
 
-#: extension.js:251
-msgid "Hide Application"
+#: contextMenu.js:121 contextMenu.js:233 switcherMenu.js:69 switcherMenu.js:365
+msgid "Move to Workspace"
 msgstr ""
 
-#: extension.js:271
-msgid "Hide Others"
+#: contextMenu.js:153
+msgid "Open Windows"
 msgstr ""
 
-#: extension.js:290
-msgid "Show All"
+#: contextMenu.js:159
+msgid "Untitled"
 msgstr ""
 
-#: extension.js:299
-msgid "Quit Application"
+#: contextMenu.js:234 switcherMenu.js:366
+msgid "Send to Workspace"
 msgstr ""
 
-#: extension.js:318
-msgid "Open Applications"
-msgstr ""
-
-#. Translators: %d is the workspace number
-#: extension.js:571 extension.js:587
+#: contextMenu.js:268 indicator.js:289 switcherMenu.js:400
 #, javascript-format
 msgid "Workspace %d"
 msgstr ""
 
-#: extension.js:593 extension.js:684
-msgid "Desktop"
+#: contextMenu.js:289
+msgid "Window"
 msgstr ""
 
-#. Translators: %s is the application name
-#: extension.js:654
+#: contextMenu.js:291
+msgid "Window Moved"
+msgstr ""
+
+#: contextMenu.js:293 switcherMenu.js:425
 #, javascript-format
-msgid "Hide %s"
+msgid "%s Sent to Workspace %d"
 msgstr ""
 
-#. Translators: %s is the application name
-#: extension.js:656
-#, javascript-format
-msgid "Quit %s"
+#: indicator.js:37 settings/aboutPage.js:70
+msgid "Classic App Switcher"
 msgstr ""
 
-#: extension.js:577
-msgid "No Applications"
-msgstr ""
-
-#: extension.js:240
+#: indicator.js:147
 msgid "Application Switcher"
 msgstr ""
 
-#: extension.js:594 extension.js:685
-msgid "Application Switcher - Desktop"
-msgstr ""
-
-#. Translators: %d is the workspace number
-#: extension.js:572 extension.js:588
+#: indicator.js:290
 #, javascript-format
 msgid "Application Switcher - Workspace %d"
 msgstr ""
 
-#: extension.js:578
+#: indicator.js:300
+msgid "No Applications"
+msgstr ""
+
+#: indicator.js:301
 msgid "Application Switcher - No Applications"
 msgstr ""
 
-#. Translators: %s is the application name
-#: extension.js:658
+#: indicator.js:311
+msgid "Desktop"
+msgstr ""
+
+#: indicator.js:312
+msgid "Application Switcher - Desktop"
+msgstr ""
+
+#: indicator.js:451
+#, javascript-format
+msgid "Hide %s"
+msgstr ""
+
+#: indicator.js:452
+#, javascript-format
+msgid "Quit %s"
+msgstr ""
+
+#: indicator.js:454
 #, javascript-format
 msgid "Application Switcher - %s"
 msgstr ""
 
-#: prefs.js:46
-msgid "Panel Indicator"
+#: switcherMenu.js:101
+msgid "Hide Application"
 msgstr ""
 
-#: prefs.js:82
+#: switcherMenu.js:109
+msgid "Hide Others"
+msgstr ""
+
+#: switcherMenu.js:117
+msgid "Show All"
+msgstr ""
+
+#: switcherMenu.js:128
+msgid "Quit Application"
+msgstr ""
+
+#: switcherMenu.js:253
+msgid "Open Applications"
+msgstr ""
+
+#: switcherMenu.js:421
+msgid "Application"
+msgstr ""
+
+#: switcherMenu.js:423
+msgid "Application Moved"
+msgstr ""
+
+#: windowManager.js:733
+msgid "Hide"
+msgstr ""
+
+#: windowManager.js:734
+msgid "Minimize"
+msgstr ""
+
+#: windowManager.js:738
+msgid "Move to Workspace Left"
+msgstr ""
+
+#: windowManager.js:739
+msgid "Send to Workspace Left"
+msgstr ""
+
+#: windowManager.js:740
+msgid "Move to Workspace Right"
+msgstr ""
+
+#: windowManager.js:741
+msgid "Send to Workspace Right"
+msgstr ""
+
+#: settings/aboutPage.js:27
+msgid "About"
+msgstr ""
+
+#: settings/aboutPage.js:79
 msgid "Mouse friendly application switching for GNOME"
 msgstr ""
 
-#: prefs.js:133
-msgid "Appearance"
+#: settings/aboutPage.js:137 settings/legalPage.js:21
+msgid "Legal"
 msgstr ""
 
-#: prefs.js:134
-msgid "Customize how the switcher looks"
+#: settings/aboutPage.js:138
+msgid "Licensing information"
 msgstr ""
 
-#: prefs.js:139
-msgid "Show Application Name"
+#: settings/aboutPage.js:162
+msgid "License"
 msgstr ""
 
-#: prefs.js:140
-msgid "Display the name of the focused application in the panel"
+#: settings/aboutPage.js:172
+msgid "Copyright"
 msgstr ""
 
-#: prefs.js:153
-msgid "Panel Position"
+#: settings/aboutPage.js:192
+msgid "GitHub Repository"
 msgstr ""
 
-#: prefs.js:154
-msgid "Configure where the switcher appears in the panel"
+#: settings/aboutPage.js:193
+msgid "Source code, issues, and contributions"
 msgstr ""
 
-#: prefs.js:159
-msgid "Panel Area"
+#: settings/accessibilityPage.js:28
+msgid "Accessibility"
 msgstr ""
 
-#: prefs.js:160
-msgid "Choose which section of the panel to use"
-msgstr ""
-
-#: prefs.js:164
-msgid "Left"
-msgstr ""
-
-#: prefs.js:165
-msgid "Center"
-msgstr ""
-
-#: prefs.js:166
-msgid "Right"
-msgstr ""
-
-#: prefs.js:184
-msgid "Position Offset"
-msgstr ""
-
-#: prefs.js:185
-msgid "Fine-tune position (0 = default, negative = left, positive = right)"
-msgstr ""
-
-#: prefs.js:223
-msgid "Icon-only mode? ...try pushing the indicator to the end of the panel!"
-msgstr ""
-
-#: prefs.js:224
-msgid "Set the offset to <b>10</b> to place the button at the very end of the top panel"
-msgstr ""
-
-#: prefs.js:246
-msgid "Keyboard Access"
-msgstr ""
-
-#: prefs.js:252
+#: settings/accessibilityPage.js:43 settings/shortcutReferencePage.js:21
 msgid "Keyboard Shortcuts"
 msgstr ""
 
-#: prefs.js:253
+#: settings/accessibilityPage.js:44
 msgid "Optional keyboard shortcuts for application and window management"
 msgstr ""
 
-#: prefs.js:258
+#: settings/accessibilityPage.js:49
 msgid "Enable Keyboard Shortcuts"
 msgstr ""
 
-#: prefs.js:259
+#: settings/accessibilityPage.js:50
 msgid "Activate custom shortcuts for enhanced window management"
 msgstr ""
 
-#: prefs.js:265
+#: settings/accessibilityPage.js:56
 msgid "More Information"
 msgstr ""
 
-#: prefs.js:279
-msgid "🪤 Super+H and Super+M will be temporarily remapped while this option is enabled. To access the notification list please use Super+V which is the official shortcut shown in GNOME Settings. 🐁"
+#: settings/accessibilityPage.js:70
+msgid ""
+"🪤 Super+H and Super+M will be temporarily remapped while this option is "
+"enabled. To access the notification list please use Super+V which is the "
+"official shortcut shown in GNOME Settings. 🐁"
 msgstr ""
 
-#: prefs.js:313
+#: settings/accessibilityPage.js:101
 msgid "Keyboard shortcuts enabled"
 msgstr ""
 
-#: prefs.js:314
+#: settings/accessibilityPage.js:102
 msgid "Keyboard shortcuts disabled"
 msgstr ""
 
-#: prefs.js:348
+#: settings/accessibilityPage.js:133
 msgid "Show Menu Hints"
 msgstr ""
 
-#: prefs.js:349
+#: settings/accessibilityPage.js:134
 msgid "Display shortcut key labels next to menu items"
 msgstr ""
 
-#: prefs.js:370
-msgid "Configuration"
+#: settings/accessibilityPage.js:159
+msgid "Keyboard Access"
 msgstr ""
 
-#: prefs.js:371
-msgid "The following shortcuts are available when enabled above"
+#: settings/accessibilityPage.js:160
+msgid "View available shortcuts"
 msgstr ""
 
-#: prefs.js:378
+#: settings/accessibilityPage.js:202
+msgid "Shortcuts"
+msgstr ""
+
+#: settings/accessibilityPage.js:220
+msgid "Visual Aids"
+msgstr ""
+
+#: settings/accessibilityPage.js:221
+msgid "Enhance visual clarity and reduce distractions"
+msgstr ""
+
+#: settings/accessibilityPage.js:226
+msgid "Enable Overview Effects"
+msgstr ""
+
+#: settings/accessibilityPage.js:227
+msgid "Apply visual effects to windows in overview for improved distinction"
+msgstr ""
+
+#: settings/accessibilityPage.js:239
+msgid "Hide Applications in Overview"
+msgstr ""
+
+#: settings/accessibilityPage.js:240
+msgid ""
+"Hidden apps will not appear in activities overview, reducing visual noise"
+msgstr ""
+
+#: settings/accessibilityPage.js:271
+msgid "Activating this option will override GNOME default system shortcuts"
+msgstr ""
+
+#: settings/accessibilityPage.js:272
+msgid ""
+"All shortcuts will be restored to their defaults when this option is "
+"deactivated and if this extension is disabled or removed"
+msgstr ""
+
+#: settings/panelPage.js:23
+msgid "Panel"
+msgstr ""
+
+#: settings/panelPage.js:42
+msgid "Indicator"
+msgstr ""
+
+#: settings/panelPage.js:43
+msgid "Customize the panel button appearance"
+msgstr ""
+
+#: settings/panelPage.js:48
+msgid "Show Application Name"
+msgstr ""
+
+#: settings/panelPage.js:49
+msgid "Display the name of the focused application in the panel"
+msgstr ""
+
+#: settings/panelPage.js:64
+msgid "Menu"
+msgstr ""
+
+#: settings/panelPage.js:65
+msgid "Customize the menu appearance"
+msgstr ""
+
+#: settings/panelPage.js:70
+msgid "Hide Boxpointer"
+msgstr ""
+
+#: settings/panelPage.js:71
+msgid "Do not show the menu arrow"
+msgstr ""
+
+#: settings/panelPage.js:86
+msgid "Panel Position"
+msgstr ""
+
+#: settings/panelPage.js:87
+msgid "Configure where the indicator appears in the panel"
+msgstr ""
+
+#: settings/panelPage.js:92
+msgid "Panel Area"
+msgstr ""
+
+#: settings/panelPage.js:93
+msgid "Choose which section of the panel to use"
+msgstr ""
+
+#: settings/panelPage.js:97
+msgid "Left"
+msgstr ""
+
+#: settings/panelPage.js:98
+msgid "Center"
+msgstr ""
+
+#: settings/panelPage.js:99
+msgid "Right"
+msgstr ""
+
+#: settings/panelPage.js:117
+msgid "Position Offset"
+msgstr ""
+
+#: settings/panelPage.js:118
+msgid "Fine-tune position (0 = default, negative = left, positive = right)"
+msgstr ""
+
+#: settings/panelPage.js:157
+msgid "Icon-only mode? ...try pushing the indicator to the end of the panel"
+msgstr ""
+
+#: settings/panelPage.js:158
+msgid ""
+"Set the offset to <b>10</b> to place the button at the very end of the top "
+"panel"
+msgstr ""
+
+#: settings/shortcutReferencePage.js:39
 msgid "Hide the current application<sup>*</sup>"
 msgstr ""
 
-#: prefs.js:379
+#: settings/shortcutReferencePage.js:40
 msgid "Assigned to <b>Hide window</b> by default"
 msgstr ""
 
-#: prefs.js:384 schemas/org.gnome.shell.extensions.classic-app-switcher.gschema.xml:42
+#: settings/shortcutReferencePage.js:45
 msgid "Hide all other applications"
 msgstr ""
 
-#: prefs.js:389 schemas/org.gnome.shell.extensions.classic-app-switcher.gschema.xml:47
+#: settings/shortcutReferencePage.js:50
 msgid "Show most recently hidden application"
 msgstr ""
 
-#: prefs.js:394 schemas/org.gnome.shell.extensions.classic-app-switcher.gschema.xml:52
+#: settings/shortcutReferencePage.js:55
 msgid "Show all hidden applications/windows"
 msgstr ""
 
-#: prefs.js:399
+#: settings/shortcutReferencePage.js:60
 msgid "Minimize the current window<sup>*</sup>"
 msgstr ""
 
-#: prefs.js:400
+#: settings/shortcutReferencePage.js:61
 msgid "Assigned to <b>Show the notification list</b> by default"
 msgstr ""
 
-#: prefs.js:405 schemas/org.gnome.shell.extensions.classic-app-switcher.gschema.xml:62
+#: settings/shortcutReferencePage.js:66
 msgid "Unminimize most recently minimized window"
 msgstr ""
 
-#: prefs.js:410 schemas/org.gnome.shell.extensions.classic-app-switcher.gschema.xml:67
+#: settings/shortcutReferencePage.js:71
 msgid "Close the current window"
 msgstr ""
 
-#: prefs.js:415 schemas/org.gnome.shell.extensions.classic-app-switcher.gschema.xml:72
+#: settings/shortcutReferencePage.js:76
 msgid "Quit the current application"
-msgstr ""
-
-#: prefs.js:534
-msgid "Activating this option will override GNOME <sup>*</sup>default system shortcuts"
-msgstr ""
-
-#: prefs.js:535
-msgid "All shortcuts will be restored to their defaults when this option is deactivated and if this extension is disabled or removed"
-msgstr ""
-
-#: schemas/org.gnome.shell.extensions.classic-app-switcher.gschema.xml:6
-msgid "Show application name"
-msgstr ""
-
-#: schemas/org.gnome.shell.extensions.classic-app-switcher.gschema.xml:7
-msgid "Display the name of the currently focused application next to its icon in the panel"
-msgstr ""
-
-#: schemas/org.gnome.shell.extensions.classic-app-switcher.gschema.xml:16
-msgid "Panel box position"
-msgstr ""
-
-#: schemas/org.gnome.shell.extensions.classic-app-switcher.gschema.xml:17
-msgid "The panel area where the switcher should be placed (left, center, or right)"
-msgstr ""
-
-#: schemas/org.gnome.shell.extensions.classic-app-switcher.gschema.xml:22
-msgid "Position offset in panel box"
-msgstr ""
-
-#: schemas/org.gnome.shell.extensions.classic-app-switcher.gschema.xml:23
-msgid "Fine-tunes the position within the chosen panel box (0 is default, negative moves left/up, positive moves right/down)"
-msgstr ""
-
-#: schemas/org.gnome.shell.extensions.classic-app-switcher.gschema.xml:27
-msgid "Enable keyboard shortcuts"
-msgstr ""
-
-#: schemas/org.gnome.shell.extensions.classic-app-switcher.gschema.xml:28
-msgid "Activates custom shortcuts for enhanced window management"
-msgstr ""
-
-#: schemas/org.gnome.shell.extensions.classic-app-switcher.gschema.xml:32
-msgid "Show keyboard hints in menu"
-msgstr ""
-
-#: schemas/org.gnome.shell.extensions.classic-app-switcher.gschema.xml:33
-msgid "Displays keyboard shortcut hints next to menu items when shortcuts are enabled"
-msgstr ""
-
-#: schemas/org.gnome.shell.extensions.classic-app-switcher.gschema.xml:37
-msgid "Hide the current application"
-msgstr ""
-
-#: schemas/org.gnome.shell.extensions.classic-app-switcher.gschema.xml:38
-msgid "Hides all windows of the currently focused application"
-msgstr ""
-
-#: schemas/org.gnome.shell.extensions.classic-app-switcher.gschema.xml:43
-msgid "Hides all windows except those belonging to the currently focused application"
-msgstr ""
-
-#: schemas/org.gnome.shell.extensions.classic-app-switcher.gschema.xml:48
-msgid "Restores the most recently hidden application to view"
-msgstr ""
-
-#: schemas/org.gnome.shell.extensions.classic-app-switcher.gschema.xml:53
-msgid "Restores all hidden apps and minimized windows on the current workspace"
-msgstr ""
-
-#: schemas/org.gnome.shell.extensions.classic-app-switcher.gschema.xml:57
-msgid "Minimize the current window"
-msgstr ""
-
-#: schemas/org.gnome.shell.extensions.classic-app-switcher.gschema.xml:58
-msgid "Minimizes the currently focused window"
-msgstr ""
-
-#: schemas/org.gnome.shell.extensions.classic-app-switcher.gschema.xml:63
-msgid "Restores the last minimized window"
-msgstr ""
-
-#: schemas/org.gnome.shell.extensions.classic-app-switcher.gschema.xml:68
-msgid "Closes the currently focused window"
-msgstr ""
-
-#: schemas/org.gnome.shell.extensions.classic-app-switcher.gschema.xml:73
-msgid "Quits the currently focused application"
 msgstr ""

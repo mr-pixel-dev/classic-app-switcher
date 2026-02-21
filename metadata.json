@@ -5,12 +5,14 @@
   "author": "Mr Pixel <mr-pixel-dev@users.noreply.github.com>",
   "url": "https://github.com/mr-pixel-dev/classic-app-switcher",
   "shell-version": [
+    "46",
     "47",
     "48",
-    "49"
+    "49",
+    "50"
   ],
-  "version": 9,
-  "version-name": "2.1",
+  "version": 11,
+  "version-name": "3.0",
   "settings-schema": "org.gnome.shell.extensions.classic-app-switcher",
   "gettext-domain": "classic-app-switcher"
 }

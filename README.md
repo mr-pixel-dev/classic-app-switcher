@@ -16,6 +16,17 @@ The extension places an app indicator (icon and title) on the panel showing the 
 - Optional Mac OS style keyboard shortcut support! (details below)
 - Complements native GNOME features (Activities, Dash, Dynamic Workspaces)
 
+### **What's New in v3.0:**
+
+- Right-Click Context Menu: Access Dash App Menu and Action List and see all open windows of the current app directly from the panel indicator
+- Workspace Switcher: Quickly move applications or windows between workspaces via context menu (hold Alt to send without switching workspace)
+- Overview Effects: Optional visual effects for minimized and hidden windows in Activities Overview
+- Hide from Overview: Optionally exclude hidden windows from Activities Overview for a cleaner workspace
+- Middle-Click panel indicator to quick launch new window in supported apps
+- Boxpointer Menu Arrow: Optional arrow indicator on popup menus
+- Complete Refactor: Improved stability, performance, and code quality
+- Extended GNOME Support: Now supports GNOME Shell 46-50
+
 ### **Design Philosophy:**
 
 Classic App Switcher augments GNOME's existing workflow rather than replacing it. Unlike dock or taskbar extensions, it works *with* GNOME's full-screen launcher and Activities Overview, not against them.
@@ -46,7 +57,7 @@ Keyboard Access to the list of running apps is handled by GNOME's built-in **Sup
 
 **A Short Note About Keyboard Shortcuts** 
 
-This extension temporarily repurposes two GNOME shortcuts while enabled: **Super+H** (originally "Hide window") → now hides the entire app & **Super+M** which is assigned by default to open the Notification list (although the official documented shortcut is **Super+V** as shown in GNOME Settings > Keyboard > View and Customize Shortcuts) being a duplication we have borrowed it for 'Minimize Window' to complement our provided shortcuts. GNOME provides a built-in Hide/Show All toggle using **Super+D** if you need to quickly clear/restore your entire workspace.
+This extension temporarily repurposes two GNOME shortcuts while enabled: **Super+H** (originally "Hide window") → now hides the entire app & **Super+M** which is assigned by default to open the Notification list (although the official documented shortcut is **Super+V** as shown in GNOME Settings > Keyboard > View and Customize Shortcuts) being a duplication we have borrowed it for 'Minimize Window' to complement our provided shortcuts.
 
 If you need notifications/calendar access via the keyboard, please use **Super+V** instead (it does the same thing) 🙃
 
@@ -56,15 +67,15 @@ All shortcuts are restored to default when you disable the extension!
 
 - **Screen reader:** May have issues on some GNOME 48 installations. Works correctly in GNOME 49+
 
-- **Extension Preferences:** Header logo icon not being recolored in dark-mode on Gnome 47/48. Resolved in GNOME 49+
-
-- **GNOME Shell 50** Support is temporarily disabled due to an upstream event handling regression affecting panel button clicks. This will be re-enabled once the issue is resolved in GNOME Shell stable releases.
+- **Submenu Animation:** GNOME Shell has a minor visual glitch where submenus exhibit a "bounce" during animation when opening/closing. This is a known upstream issue affecting all extensions and will be resolved when GNOME Shell fixes it. Does not affect functionality.
 
 ##### **Notice:**
 
 1. In order to display a symbolic icon in the panel indicator, developers must ensure they have included a symbolic version of their app-icon in their package. Missing icons will result in the default full-color Icon being displayed. If you spot an application that has a missing icon please reach out to their developers politely requesting they add one!
 
 2. This extension will function perfectly well if you do not have the minimize button enabled for window management - though you may find it helpful to enable this via GNOME Tweaks for an enhanced experience, particularly if you tend to work with multiple windows and apps on a single workspace. Note: GNOME 47+ disables the minimize button by default, but it can easily be re-enabled.
+
+**Pro Tip:** Instead of enabling the minimize button, you can middle-click any window's title bar to minimize it! This keeps your window chrome clean (only showing the close button) while still providing quick minimize access. Enable this in GNOME Tweaks → Windows → Titlebar Actions → Middle-Click → Minimize.
 
 ## Installation
 
