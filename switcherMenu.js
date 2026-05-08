@@ -1,6 +1,7 @@
 'use strict';
 
 import Clutter from 'gi://Clutter';
+import Gio from 'gi://Gio';
 import Meta from 'gi://Meta';
 import Pango from 'gi://Pango';
 import Shell from 'gi://Shell';
@@ -393,12 +394,19 @@ export function updateSwitcherSubmenu(switcher) {
         return Clutter.EVENT_PROPAGATE;
     });
 
+    const settings = new Gio.Settings({ schema_id: 'org.gnome.desktop.wm.preferences' });
+    const workspaceNames = settings.get_strv('workspace-names');
+
     // Add workspace items
     for (let i = 0; i < nWorkspaces; i++) {
         const workspace = workspaceManager.get_workspace_by_index(i);
-        const item = new PopupMenu.PopupMenuItem(
-            _('Workspace %d').format(i + 1),
-        );
+
+        // Use custom name if available, otherwise use default format
+        const workspaceName = (workspaceNames && workspaceNames[i] && workspaceNames[i].trim() !== '')
+            ? workspaceNames[i]
+            : _('Workspace %d').format(i + 1);
+
+        const item = new PopupMenu.PopupMenuItem(workspaceName);
 
         // Set ornament
         if (workspace !== currentWorkspace) {
