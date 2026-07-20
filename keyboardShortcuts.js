@@ -8,6 +8,18 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import * as SwitcherMenu from './switcherMenu.js';
 import * as WindowManager from './windowManager.js';
+import {
+    acceleratorIdentity,
+    SHORTCUT_KEYS,
+} from './shortcuts.js';
+
+const GNOME_KEYBINDING_SCHEMAS = [
+    'org.gnome.desktop.wm.keybindings',
+    'org.gnome.mutter.keybindings',
+    'org.gnome.mutter.wayland.keybindings',
+    'org.gnome.shell.keybindings',
+    'org.gnome.settings-daemon.plugins.media-keys',
+];
 
 /**
  * Keyboard Shortcuts - Manages optional keyboard shortcuts for app management
@@ -15,24 +27,51 @@ import * as WindowManager from './windowManager.js';
  */
 
 /**
- * Override GNOME default keybindings that conflict with our shortcuts
- * - Disables GNOME's 'hide' window (win.minimized) as we use Super+H for hide app and Super+M for minimize window
- * - Unbinds redundant Super+M from Notification list, official default is Super+V
+ * Temporarily remove GNOME keybindings that conflict with our shortcuts.
+ * @param {ClassicAppSwitcher} switcher - The switcher instance
  */
-export function overrideGnomeDefaults() {
-    const wmSettings = new Gio.Settings({
-        schema_id: 'org.gnome.desktop.wm.keybindings'
-    });
-    const shellSettings = new Gio.Settings({
-        schema_id: 'org.gnome.shell.keybindings'
+export function overrideGnomeDefaults(switcher) {
+    const configuredAccelerators = new Set();
+    SHORTCUT_KEYS.forEach(key => {
+        switcher._settings.get_strv(key).forEach(accelerator => {
+            const identity = acceleratorIdentity(accelerator);
+            if (identity) {
+                configuredAccelerators.add(identity);
+            }
+        });
     });
 
-    // Disable GNOME's minimize shortcut (conflicts with our Super+M)
-    wmSettings.set_strv('minimize', []);
+    const schemaSource = Gio.SettingsSchemaSource.get_default();
+    GNOME_KEYBINDING_SCHEMAS.forEach(schemaId => {
+        const schema = schemaSource.lookup(schemaId, true);
+        if (!schema) {
+            return;
+        }
 
-    // Move GNOME's message tray from Super+M to Super+V
-    shellSettings.reset('toggle-message-tray');
-    shellSettings.set_strv('toggle-message-tray', ['<Super>v']);
+        const settings = new Gio.Settings({settings_schema: schema});
+        schema.list_keys().forEach(key => {
+            if (settings.get_value(key).get_type_string() !== 'as') {
+                return;
+            }
+
+            const before = settings.get_strv(key);
+            const after = before.filter(accelerator =>
+                !configuredAccelerators.has(acceleratorIdentity(accelerator)));
+            if (before.length === after.length) {
+                return;
+            }
+            if (!settings.is_writable(key)) {
+                log(`Classic App Switcher: Cannot disable read-only shortcut: ${schemaId}/${key}`);
+                return;
+            }
+
+            if (settings.set_strv(key, after)) {
+                switcher._overriddenKeybindings.push({settings, key, before, after});
+            } else {
+                log(`Classic App Switcher: Failed to disable conflicting shortcut: ${schemaId}/${key}`);
+            }
+        });
+    });
 }
 
 /**
@@ -42,6 +81,11 @@ export function overrideGnomeDefaults() {
  * @param {Function} handler - The handler function to call when shortcut is triggered
  */
 export function registerShortcut(switcher, key, handler) {
+    if (!switcher._settings.get_strv(key).some(accelerator =>
+        acceleratorIdentity(accelerator))) {
+        return;
+    }
+
     const id = Main.wm.addKeybinding(
         key,
         switcher._settings,
@@ -67,46 +111,27 @@ export function setupKeyboardShortcuts(switcher) {
     }
 
     // Override GNOME defaults that conflict with our shortcuts
-    overrideGnomeDefaults();
+    overrideGnomeDefaults(switcher);
 
     // Register all shortcuts from structured definition
     // Each shortcut maps a settings key to its handler method
-    const shortcuts = [{
-            key: 'hide-current-app',
-            handler: () => WindowManager.hideCurrentApp(switcher)
-        },
-        {
-            key: 'hide-others',
-            handler: () => WindowManager.hideOthers(switcher)
-        },
-        {
-            key: 'show-recent-app',
-            handler: () => WindowManager.showRecentApp(switcher)
-        },
-        {
-            key: 'show-all-apps',
-            handler: () => WindowManager.showAll(switcher)
-        },
-        {
-            key: 'minimize-current-window',
-            handler: () => WindowManager.minimizeCurrentWindow(switcher)
-        },
-        {
-            key: 'unminimize-recent-window',
-            handler: () => WindowManager.unminimizeRecentWindow(switcher)
-        },
-        {
-            key: 'close-current-window',
-            handler: () => WindowManager.closeCurrentWindow(switcher)
-        },
-        {
-            key: 'quit-current-app',
-            handler: () => WindowManager.quitCurrentApp(switcher)
-        },
-    ];
+    const handlers = {
+        'hide-current-app': () => WindowManager.hideCurrentApp(switcher),
+        'hide-others': () => WindowManager.hideOthers(switcher),
+        'show-recent-app': () => WindowManager.showRecentApp(switcher),
+        'show-all-apps': () => WindowManager.showAll(switcher),
+        'minimize-current-window': () => WindowManager.minimizeCurrentWindow(switcher),
+        'unminimize-recent-window': () => WindowManager.unminimizeRecentWindow(switcher),
+        'close-current-window': () => WindowManager.closeCurrentWindow(switcher),
+        'quit-current-app': () => WindowManager.quitCurrentApp(switcher),
+    };
 
     // Register each shortcut with error handling
-    shortcuts.forEach(shortcut => registerShortcut(switcher, shortcut.key, shortcut.handler));
+    SHORTCUT_KEYS.forEach(key => registerShortcut(switcher, key, handlers[key]));
+}
+
+export function isShortcutSetting(key) {
+    return SHORTCUT_KEYS.includes(key);
 }
 
 /**
@@ -116,11 +141,8 @@ export function setupKeyboardShortcuts(switcher) {
 export function reloadShortcuts(switcher) {
     const shortcutsEnabled = switcher._settings.get_boolean('enable-keyboard-shortcuts');
 
-    if (!shortcutsEnabled) {
-        // User DISABLED shortcuts - clean up!
-        cleanupKeybindings(switcher);
-    } else {
-        // User ENABLED shortcuts - set them up!
+    cleanupKeybindings(switcher);
+    if (shortcutsEnabled) {
         setupKeyboardShortcuts(switcher);
     }
 
@@ -130,7 +152,7 @@ export function reloadShortcuts(switcher) {
 }
 
 /**
- * Clean up keyboard shortcuts and restore GNOME defaults
+ * Clean up keyboard shortcuts and restore GNOME keybindings we changed
  * @param {ClassicAppSwitcher} switcher - The switcher instance
  */
 export function cleanupKeybindings(switcher) {
@@ -140,14 +162,14 @@ export function cleanupKeybindings(switcher) {
     });
     switcher._keyBindingIds = [];
 
-    // Reset GNOME defaults
-    const wmSettings = new Gio.Settings({
-        schema_id: 'org.gnome.desktop.wm.keybindings'
+    switcher._overriddenKeybindings.forEach(({settings, key, before, after}) => {
+        const current = settings.get_strv(key);
+        if (current.length === after.length &&
+            current.every((accelerator, index) => accelerator === after[index])) {
+            if (!settings.set_strv(key, before)) {
+                log(`Classic App Switcher: Failed to restore GNOME shortcut: ${key}`);
+            }
+        }
     });
-    wmSettings.reset('minimize');
-
-    const shellSettings = new Gio.Settings({
-        schema_id: 'org.gnome.shell.keybindings'
-    });
-    shellSettings.reset('toggle-message-tray');
+    switcher._overriddenKeybindings = [];
 }

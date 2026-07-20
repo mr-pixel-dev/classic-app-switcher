@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Classic App Switcher 3.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-02-16 23:46+0000\n"
+"POT-Creation-Date: 2026-07-20 18:44+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: Mr Pixel <mr-pixel-dev@users.noreply.github.com>\n"
 "Language-Team: LANGUAGE <mr-pixel-dev@users.noreply.github.com>\n"
@@ -56,6 +56,7 @@ msgid "%s Sent to Workspace %d"
 msgstr ""
 
 #: indicator.js:37 settings/aboutPage.js:70
+#: settings/shortcutReferencePage.js:330
 msgid "Classic App Switcher"
 msgstr ""
 
@@ -187,7 +188,8 @@ msgstr ""
 msgid "Accessibility"
 msgstr ""
 
-#: settings/accessibilityPage.js:43 settings/shortcutReferencePage.js:21
+#: settings/accessibilityPage.js:43 settings/accessibilityPage.js:201
+#: settings/shortcutReferencePage.js:322
 msgid "Keyboard Shortcuts"
 msgstr ""
 
@@ -209,9 +211,9 @@ msgstr ""
 
 #: settings/accessibilityPage.js:70
 msgid ""
-"🪤 Super+H and Super+M will be temporarily remapped while this option is "
-"enabled. To access the notification list please use Super+V which is the "
-"official shortcut shown in GNOME Settings. 🐁"
+"🪤 Super+H and Super+M will be temporarily disabled while this option is "
+"enabled, but only if they conflict. To access the notification list please "
+"use Super+V which is the official shortcut shown in GNOME Settings. 🐁"
 msgstr ""
 
 #: settings/accessibilityPage.js:101
@@ -231,50 +233,46 @@ msgid "Display shortcut key labels next to menu items"
 msgstr ""
 
 #: settings/accessibilityPage.js:159
-msgid "Keyboard Access"
+msgid "View and Customize Shortcuts"
 msgstr ""
 
 #: settings/accessibilityPage.js:160
-msgid "View available shortcuts"
+msgid "Change or disable keyboard shortcuts"
 msgstr ""
 
-#: settings/accessibilityPage.js:202
-msgid "Shortcuts"
-msgstr ""
-
-#: settings/accessibilityPage.js:220
+#: settings/accessibilityPage.js:219
 msgid "Visual Aids"
 msgstr ""
 
-#: settings/accessibilityPage.js:221
+#: settings/accessibilityPage.js:220
 msgid "Enhance visual clarity and reduce distractions"
 msgstr ""
 
-#: settings/accessibilityPage.js:226
+#: settings/accessibilityPage.js:225
 msgid "Enable Overview Effects"
 msgstr ""
 
-#: settings/accessibilityPage.js:227
+#: settings/accessibilityPage.js:226
 msgid "Apply visual effects to windows in overview for improved distinction"
 msgstr ""
 
-#: settings/accessibilityPage.js:239
+#: settings/accessibilityPage.js:238
 msgid "Hide Applications in Overview"
 msgstr ""
 
-#: settings/accessibilityPage.js:240
+#: settings/accessibilityPage.js:239
 msgid ""
 "Hidden apps will not appear in activities overview, reducing visual noise"
 msgstr ""
 
-#: settings/accessibilityPage.js:271
-msgid "Activating this option will override GNOME default system shortcuts"
+#: settings/accessibilityPage.js:270
+msgid "Conflicting GNOME shortcuts will be temporarily disabled"
 msgstr ""
 
-#: settings/accessibilityPage.js:272
+#: settings/accessibilityPage.js:271
 msgid ""
-"All shortcuts will be restored to their defaults when this option is "
-"deactivated and if this extension is disabled or removed"
+"Only shortcuts using the same key combinations are changed, and they are "
+"restored when this option is deactivated"
 msgstr ""
 
 #: settings/panelPage.js:23
@@ -359,42 +357,72 @@ msgid ""
 "panel"
 msgstr ""
 
-#: settings/shortcutReferencePage.js:39
-msgid "Hide the current application<sup>*</sup>"
+#: settings/shortcutReferencePage.js:16
+msgid "Hide the current application"
 msgstr ""
 
-#: settings/shortcutReferencePage.js:40
-msgid "Assigned to <b>Hide window</b> by default"
-msgstr ""
-
-#: settings/shortcutReferencePage.js:45
+#: settings/shortcutReferencePage.js:18
 msgid "Hide all other applications"
 msgstr ""
 
-#: settings/shortcutReferencePage.js:50
+#: settings/shortcutReferencePage.js:20
 msgid "Show most recently hidden application"
 msgstr ""
 
-#: settings/shortcutReferencePage.js:55
+#: settings/shortcutReferencePage.js:22
 msgid "Show all hidden applications/windows"
 msgstr ""
 
-#: settings/shortcutReferencePage.js:60
-msgid "Minimize the current window<sup>*</sup>"
+#: settings/shortcutReferencePage.js:24
+msgid "Minimize the current window"
 msgstr ""
 
-#: settings/shortcutReferencePage.js:61
-msgid "Assigned to <b>Show the notification list</b> by default"
-msgstr ""
-
-#: settings/shortcutReferencePage.js:66
+#: settings/shortcutReferencePage.js:26
 msgid "Unminimize most recently minimized window"
 msgstr ""
 
-#: settings/shortcutReferencePage.js:71
+#: settings/shortcutReferencePage.js:28
 msgid "Close the current window"
 msgstr ""
 
-#: settings/shortcutReferencePage.js:76
+#: settings/shortcutReferencePage.js:30
 msgid "Quit the current application"
+msgstr ""
+
+#: settings/shortcutReferencePage.js:77
+msgid "Set Shortcut"
+msgstr ""
+
+#: settings/shortcutReferencePage.js:99
+msgid "_Cancel"
+msgstr ""
+
+#: settings/shortcutReferencePage.js:106 settings/shortcutReferencePage.js:280
+msgid "_Set"
+msgstr ""
+
+#: settings/shortcutReferencePage.js:123
+#, javascript-format
+msgid "Enter new shortcut to change %s"
+msgstr ""
+
+#: settings/shortcutReferencePage.js:139
+msgid "Press Esc to cancel or Backspace to disable the keyboard shortcut"
+msgstr ""
+
+#: settings/shortcutReferencePage.js:153 settings/shortcutReferencePage.js:343
+msgid "Disabled"
+msgstr ""
+
+#: settings/shortcutReferencePage.js:273
+#, javascript-format
+msgid "%s is already being used for %s. If you replace it, %s will be disabled"
+msgstr ""
+
+#: settings/shortcutReferencePage.js:277
+msgid "Re_place"
+msgstr ""
+
+#: settings/shortcutReferencePage.js:348
+msgid "Reset Shortcut"
 msgstr ""

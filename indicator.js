@@ -64,6 +64,7 @@ export const ClassicAppSwitcher = GObject.registerClass(
 
             // Keyboard shortcut action IDs
             this._keyBindingIds = [];
+            this._overriddenKeybindings = [];
 
             // Build the UI and menus
             this._buildUI();
@@ -161,6 +162,11 @@ export const ClassicAppSwitcher = GObject.registerClass(
          * @param {string} key - The settings key that changed
          */
         _handleSettingChange(key) {
+            if (KeyboardShortcuts.isShortcutSetting(key)) {
+                KeyboardShortcuts.reloadShortcuts(this);
+                return;
+            }
+
             switch (key) {
                 case 'enable-keyboard-shortcuts':
                     KeyboardShortcuts.reloadShortcuts(this);
