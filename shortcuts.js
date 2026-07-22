@@ -37,6 +37,8 @@ const MODIFIER_LABELS = new Map([
     ['meta', 'Meta'],
 ]);
 
+// GTK cannot be loaded in the GNOME Shell process, so Shell-side conflict
+// detection and menu labels need a small accelerator-string representation.
 function parseAccelerator(accelerator) {
     if (!accelerator || accelerator.toLowerCase() === 'disabled') {
         return null;

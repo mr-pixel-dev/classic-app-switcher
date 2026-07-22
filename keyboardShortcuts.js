@@ -1,6 +1,5 @@
 'use strict';
 
-import Gio from 'gi://Gio';
 import Meta from 'gi://Meta';
 import Shell from 'gi://Shell';
 
@@ -9,70 +8,17 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as SwitcherMenu from './switcherMenu.js';
 import * as WindowManager from './windowManager.js';
 import {
-    acceleratorIdentity,
-    SHORTCUT_KEYS,
-} from './shortcuts.js';
+    overrideGnomeDefaults,
+    restoreGnomeDefaults,
+} from './gnomeKeybindings.js';
+import {SHORTCUT_KEYS} from './shortcuts.js';
 
-const GNOME_KEYBINDING_SCHEMAS = [
-    'org.gnome.desktop.wm.keybindings',
-    'org.gnome.mutter.keybindings',
-    'org.gnome.mutter.wayland.keybindings',
-    'org.gnome.shell.keybindings',
-    'org.gnome.settings-daemon.plugins.media-keys',
-];
+export {overrideGnomeDefaults} from './gnomeKeybindings.js';
 
 /**
  * Keyboard Shortcuts - Manages optional keyboard shortcuts for app management
  * All functions receive the switcher instance as first parameter
  */
-
-/**
- * Temporarily remove GNOME keybindings that conflict with our shortcuts.
- * @param {ClassicAppSwitcher} switcher - The switcher instance
- */
-export function overrideGnomeDefaults(switcher) {
-    const configuredAccelerators = new Set();
-    SHORTCUT_KEYS.forEach(key => {
-        switcher._settings.get_strv(key).forEach(accelerator => {
-            const identity = acceleratorIdentity(accelerator);
-            if (identity) {
-                configuredAccelerators.add(identity);
-            }
-        });
-    });
-
-    const schemaSource = Gio.SettingsSchemaSource.get_default();
-    GNOME_KEYBINDING_SCHEMAS.forEach(schemaId => {
-        const schema = schemaSource.lookup(schemaId, true);
-        if (!schema) {
-            return;
-        }
-
-        const settings = new Gio.Settings({settings_schema: schema});
-        schema.list_keys().forEach(key => {
-            if (settings.get_value(key).get_type_string() !== 'as') {
-                return;
-            }
-
-            const before = settings.get_strv(key);
-            const after = before.filter(accelerator =>
-                !configuredAccelerators.has(acceleratorIdentity(accelerator)));
-            if (before.length === after.length) {
-                return;
-            }
-            if (!settings.is_writable(key)) {
-                log(`Classic App Switcher: Cannot disable read-only shortcut: ${schemaId}/${key}`);
-                return;
-            }
-
-            if (settings.set_strv(key, after)) {
-                switcher._overriddenKeybindings.push({settings, key, before, after});
-            } else {
-                log(`Classic App Switcher: Failed to disable conflicting shortcut: ${schemaId}/${key}`);
-            }
-        });
-    });
-}
 
 /**
  * Register a keyboard shortcut with error handling
@@ -81,8 +27,7 @@ export function overrideGnomeDefaults(switcher) {
  * @param {Function} handler - The handler function to call when shortcut is triggered
  */
 export function registerShortcut(switcher, key, handler) {
-    if (!switcher._settings.get_strv(key).some(accelerator =>
-        acceleratorIdentity(accelerator))) {
+    if (switcher._settings.get_strv(key).length === 0) {
         return;
     }
 
@@ -162,14 +107,5 @@ export function cleanupKeybindings(switcher) {
     });
     switcher._keyBindingIds = [];
 
-    switcher._overriddenKeybindings.forEach(({settings, key, before, after}) => {
-        const current = settings.get_strv(key);
-        if (current.length === after.length &&
-            current.every((accelerator, index) => accelerator === after[index])) {
-            if (!settings.set_strv(key, before)) {
-                log(`Classic App Switcher: Failed to restore GNOME shortcut: ${key}`);
-            }
-        }
-    });
-    switcher._overriddenKeybindings = [];
+    restoreGnomeDefaults(switcher);
 }

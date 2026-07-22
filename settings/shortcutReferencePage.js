@@ -9,6 +9,7 @@ import GObject from 'gi://GObject';
 import { gettext as _ } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
 import {SHORTCUT_KEYS} from '../shortcuts.js';
+import {isValidBindingPolicy} from './shortcutBindingPolicy.js';
 
 function getShortcutTitle(key) {
     switch (key) {
@@ -38,33 +39,6 @@ function acceleratorsEqual(left, right) {
     const [rightValid, rightKeyval, rightModifiers] = Gtk.accelerator_parse(right);
     return leftValid && rightValid &&
         leftKeyval === rightKeyval && leftModifiers === rightModifiers;
-}
-
-const FORBIDDEN_KEYVALS = new Set([
-    Gdk.KEY_Home,
-    Gdk.KEY_Left,
-    Gdk.KEY_Up,
-    Gdk.KEY_Right,
-    Gdk.KEY_Down,
-    Gdk.KEY_Page_Up,
-    Gdk.KEY_Page_Down,
-    Gdk.KEY_End,
-    Gdk.KEY_Tab,
-    Gdk.KEY_KP_Enter,
-    Gdk.KEY_Return,
-    Gdk.KEY_Mode_switch,
-]);
-
-function isValidBinding(keyval, modifiers) {
-    const shift = Gdk.ModifierType.SHIFT_MASK;
-    if (modifiers !== 0 && modifiers !== shift) {
-        return true;
-    }
-
-    const unicodeValue = Gdk.keyval_to_unicode(keyval);
-    const character = unicodeValue === 0 ? '' : String.fromCodePoint(unicodeValue);
-    return !/[\p{L}\p{N}]/u.test(character) &&
-        keyval !== Gdk.KEY_space && !FORBIDDEN_KEYVALS.has(keyval);
 }
 
 class KeyboardShortcutEditor extends Adw.Window {
@@ -207,7 +181,7 @@ class KeyboardShortcutEditor extends Adw.Window {
         this._systemShortcutsInhibited = false;
     }
 
-    _normalizeKey(controller, keyval, keycode, state) {
+    _normalizeCapturedKey(controller, keyval, keycode, state) {
         const explicitModifiers = Gtk.accelerator_get_default_mod_mask() |
             Gdk.ModifierType.SHIFT_MASK;
         const modifiers = state & explicitModifiers & ~Gdk.ModifierType.LOCK_MASK;
@@ -236,7 +210,11 @@ class KeyboardShortcutEditor extends Adw.Window {
     }
 
     _onKeyPressed(controller, keyval, keycode, state) {
-        const [normalizedKeyval, modifiers] = this._normalizeKey(
+        if (this._candidate !== null) {
+            return Gdk.EVENT_PROPAGATE;
+        }
+
+        const [normalizedKeyval, modifiers] = this._normalizeCapturedKey(
             controller,
             keyval,
             keycode,
@@ -254,7 +232,7 @@ class KeyboardShortcutEditor extends Adw.Window {
 
         const acceleratorValid = Gtk.accelerator_valid(normalizedKeyval, modifiers) ||
             (normalizedKeyval === Gdk.KEY_Tab && modifiers !== 0);
-        if (acceleratorValid && isValidBinding(normalizedKeyval, modifiers)) {
+        if (acceleratorValid && isValidBindingPolicy(normalizedKeyval, modifiers)) {
             this._showCandidate(Gtk.accelerator_name(normalizedKeyval, modifiers));
         }
         return Gdk.EVENT_STOP;
@@ -266,6 +244,8 @@ class KeyboardShortcutEditor extends Adw.Window {
         this._shortcutLabel.accelerator = accelerator;
         this._setButton.sensitive = true;
         this._stack.set_visible_child_name('candidate');
+        this._restoreSystemShortcuts();
+        this._setButton.grab_focus();
 
         if (this._collision) {
             const [, keyval, modifiers] = Gtk.accelerator_parse(accelerator);
