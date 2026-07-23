@@ -14,6 +14,7 @@ import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 import * as EventHandlers from './eventHandlers.js';
 import * as WindowManager from './windowManager.js';
+import {acceleratorLabel} from './shortcuts.js';
 
 /**
  * Switcher Menu - Left-click menu for app switching and management
@@ -103,7 +104,7 @@ export function buildSwitcherActions(switcher) {
         WindowManager.hideCurrentApp(switcher);
     });
     switcher._switcherActionsSection.addMenuItem(switcher._hideCurrentItem);
-    addKeyboardHint(switcher, switcher._hideCurrentItem, 'Super+H');
+    addKeyboardHint(switcher, switcher._hideCurrentItem, 'hide-current-app');
 
     // Hide Others
     switcher._hideOthersItem = new PopupMenu.PopupMenuItem(_('Hide Others'));
@@ -111,7 +112,7 @@ export function buildSwitcherActions(switcher) {
         WindowManager.hideOthers(switcher);
     });
     switcher._switcherActionsSection.addMenuItem(switcher._hideOthersItem);
-    addKeyboardHint(switcher, switcher._hideOthersItem, 'Alt+Super+H');
+    addKeyboardHint(switcher, switcher._hideOthersItem, 'hide-others');
 
     // Show All
     switcher._showAllItem = new PopupMenu.PopupMenuItem(_('Show All'));
@@ -119,6 +120,7 @@ export function buildSwitcherActions(switcher) {
         WindowManager.showAll(switcher);
     });
     switcher._switcherActionsSection.addMenuItem(switcher._showAllItem);
+    addKeyboardHint(switcher, switcher._showAllItem, 'show-all-apps');
 
     // Menu Separator
     switcher._topSeparator = new PopupMenu.PopupSeparatorMenuItem();
@@ -130,7 +132,7 @@ export function buildSwitcherActions(switcher) {
         WindowManager.quitCurrentApp(switcher);
     });
     switcher._switcherActionsSection.addMenuItem(switcher._quitCurrentItem);
-    addKeyboardHint(switcher, switcher._quitCurrentItem, 'Super+Q');
+    addKeyboardHint(switcher, switcher._quitCurrentItem, 'quit-current-app');
 }
 
 /**
@@ -188,12 +190,17 @@ export function updateConditionalMenuItems(switcher) {
  * Only adds hint if keyboard shortcuts are enabled and hints are visible in settings
  * @param {ClassicAppSwitcher} switcher - The switcher instance
  * @param {PopupMenu.PopupMenuItem} item - The menu item to add hint to
- * @param {string} shortcut - The keyboard shortcut text (e.g., 'Super+H')
+ * @param {string} key - The shortcut key from settings schema
  */
-export function addKeyboardHint(switcher, item, shortcut) {
+export function addKeyboardHint(switcher, item, key) {
     // Only add if shortcuts are enabled and hints are visible
     if (!switcher._settings.get_boolean('enable-keyboard-shortcuts') ||
         !switcher._settings.get_boolean('show-menu-hints')) {
+        return;
+    }
+
+    const shortcut = acceleratorLabel(switcher._settings.get_strv(key)[0]);
+    if (!shortcut) {
         return;
     }
 

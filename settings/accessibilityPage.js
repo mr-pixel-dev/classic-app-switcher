@@ -67,7 +67,7 @@ export class AccessibilityPage extends Adw.PreferencesPage {
         });
 
         const popoverLabel = new Gtk.Label({
-            label: _('🪤 Super+H and Super+M will be temporarily remapped while this option is enabled. To access the notification list please use Super+V which is the official shortcut shown in GNOME Settings. 🐁'),
+            label: _('🪤 Super+H and Super+M will be temporarily disabled while this option is enabled, but only if they conflict. To access the notification list please use Super+V which is the official shortcut shown in GNOME Settings. 🐁'),
             wrap: true,
             max_width_chars: 40,
             xalign: 0,
@@ -156,8 +156,8 @@ export class AccessibilityPage extends Adw.PreferencesPage {
         const shortcutsGroup = new Adw.PreferencesGroup();
 
         const referenceRow = new Adw.ActionRow({
-            title: _('Keyboard Access'),
-            subtitle: _('View available shortcuts'),
+            title: _('View and Customize Shortcuts'),
+            subtitle: _('Change or disable keyboard shortcuts'),
             activatable: true,
         });
         referenceRow.add_suffix(new Gtk.Image({
@@ -183,7 +183,7 @@ export class AccessibilityPage extends Adw.PreferencesPage {
             this._shortcutsWindow = null;
         }
 
-        const shortcutsDialog = new KeyboardShortcutsDialog();
+        const shortcutsDialog = new KeyboardShortcutsDialog(this._settings);
 
         const headerBar = new Adw.HeaderBar({
             show_back_button: false,
@@ -193,13 +193,12 @@ export class AccessibilityPage extends Adw.PreferencesPage {
         toolbarView.add_top_bar(headerBar);
         toolbarView.set_content(shortcutsDialog);
 
-        // Create modal window
         const window = new Adw.Window({
             modal: true,
             transient_for: this.get_root(),
             default_width: 600,
             default_height: 550,
-            title: _('Shortcuts'),
+            title: _('Keyboard Shortcuts'),
             content: toolbarView,
         });
 
@@ -268,8 +267,8 @@ export class AccessibilityPage extends Adw.PreferencesPage {
         });
 
         const warningLabel = new Gtk.Label({
-            label: _('Activating this option will override GNOME default system shortcuts'),
-            tooltip_markup: _('All shortcuts will be restored to their defaults when this option is deactivated and if this extension is disabled or removed'),
+            label: _('Conflicting GNOME shortcuts will be temporarily disabled'),
+            tooltip_markup: _('Only shortcuts using the same key combinations are changed, and they are restored when this option is deactivated'),
             wrap: true,
             xalign: 0,
             hexpand: true,
