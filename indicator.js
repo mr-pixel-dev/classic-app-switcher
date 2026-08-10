@@ -181,8 +181,9 @@ export const ClassicAppSwitcher = GObject.registerClass(
                     }
                     break;
                 case 'hide-windows-from-overview':
-                    // Toggle hidden window filtering on/off
-                    if (this._settings.get_boolean('hide-windows-from-overview')) {
+                case 'hide-minimized-windows-from-overview':
+                    if (this._settings.get_boolean('hide-windows-from-overview') ||
+                        this._settings.get_boolean('hide-minimized-windows-from-overview')) {
                         WindowManager.enableHiddenWindowFiltering(this);
                     } else {
                         WindowManager.disableHiddenWindowFiltering(this);
@@ -236,8 +237,8 @@ export const ClassicAppSwitcher = GObject.registerClass(
                 WindowManager.enableHideHandling(this);
             }
 
-            // Enable hidden window filtering in Activities Overview
-            if (this._settings.get_boolean('hide-windows-from-overview')) {
+            if (this._settings.get_boolean('hide-windows-from-overview') ||
+                this._settings.get_boolean('hide-minimized-windows-from-overview')) {
                 WindowManager.enableHiddenWindowFiltering(this);
             }
 
@@ -589,8 +590,7 @@ export const ClassicAppSwitcher = GObject.registerClass(
 
             // Clean up hidden window focus signal
             if (this._hiddenWindowFocusId) {
-                global.display.disconnect(this._hiddenWindowFocusId);
-                this._hiddenWindowFocusId = null;
+                WindowManager.disableHiddenWindowFiltering(this);
             }
 
             // Clean up submenu key handler signals
