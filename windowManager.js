@@ -801,6 +801,7 @@ export function enableHiddenWindowFiltering(switcher) {
         return GLib.SOURCE_REMOVE;
     });
 
+    // Avoid duplicate focus handlers when either overview filter setting changes
     if (switcher._hiddenWindowFocusId) return;
 
     // Monitor window focus to clear hidden state when activated externally
