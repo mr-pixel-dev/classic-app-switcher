@@ -247,6 +247,18 @@ export class AccessibilityPage extends Adw.PreferencesPage {
         );
         visualAidsGroup.add(hideFromOverviewRow);
 
+        const hideMinimizedFromOverviewRow = new Adw.SwitchRow({
+            title: _('Hide Minimized Windows in Overview'),
+            subtitle: _('Minimized windows will not appear in activities overview, reducing visual noise'),
+        });
+        this._settings.bind(
+            'hide-minimized-windows-from-overview',
+            hideMinimizedFromOverviewRow,
+            'active',
+            Gio.SettingsBindFlags.DEFAULT
+        );
+        visualAidsGroup.add(hideMinimizedFromOverviewRow);
+
         this.add(visualAidsGroup);
     }
 

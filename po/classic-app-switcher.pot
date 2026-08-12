@@ -267,11 +267,21 @@ msgid ""
 "Hidden apps will not appear in activities overview, reducing visual noise"
 msgstr ""
 
-#: settings/accessibilityPage.js:271
+#: settings/accessibilityPage.js:251
+msgid "Hide Minimized Windows in Overview"
+msgstr ""
+
+#: settings/accessibilityPage.js:252
+msgid ""
+"Minimized windows will not appear in activities overview, reducing visual "
+"noise"
+msgstr ""
+
+#: settings/accessibilityPage.js:283
 msgid "Activating this option will override GNOME default system shortcuts"
 msgstr ""
 
-#: settings/accessibilityPage.js:272
+#: settings/accessibilityPage.js:284
 msgid ""
 "All shortcuts will be restored to their defaults when this option is "
 "deactivated and if this extension is disabled or removed"

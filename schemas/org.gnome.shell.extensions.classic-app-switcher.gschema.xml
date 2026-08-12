@@ -84,6 +84,12 @@
     in Activities overview. This provides true "hide" functionality separate 
     from minimize.</description>
     </key>
+    <key name="hide-minimized-windows-from-overview" type="b">
+      <default>false</default>
+      <summary>Hide minimized windows from Activities Overview</summary>
+      <description>When enabled, ordinarily minimized windows do not appear in Activities Overview.
+    Hidden windows remain visible unless hiding hidden windows from the overview is also enabled.</description>
+    </key>
     <key name="enable-overview-effects" type="b">
       <default>false</default>
       <summary>Enable Overview Effects</summary>

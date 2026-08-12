@@ -11,6 +11,8 @@ import {
     Workspace
 } from 'resource:///org/gnome/shell/ui/workspace.js'
 
+import {shouldShowInOverview} from './overviewWindowFilter.js';
+
 /**
  * Window Manager - Handles all window and application management operations
  * All functions receive the switcher instance as first parameter
@@ -767,39 +769,40 @@ let _originalIsOverviewWindow = null;
  * @param {ClassicAppSwitcher} switcher - The switcher instance
  */
 export function enableHiddenWindowFiltering(switcher) {
-    // Store original function
-    if (!_originalIsOverviewWindow) {
-        _originalIsOverviewWindow = Workspace.prototype._isOverviewWindow;
-    }
+    switcher._overviewWindowFilteringTarget = true;
 
     // Defer the override to avoid race conditions with Shell's workspace animation
     // This ensures Shell finishes any ongoing rendering before we change filtering
     GLib.idle_add(GLib.PRIORITY_LOW, () => {
-        // Override to filter out our hidden windows
+        if (!switcher._overviewWindowFilteringTarget) return GLib.SOURCE_REMOVE;
+
+        if (!_originalIsOverviewWindow) {
+            _originalIsOverviewWindow = Workspace.prototype._isOverviewWindow;
+        }
+        const originalIsOverviewWindow = _originalIsOverviewWindow;
+
         Workspace.prototype._isOverviewWindow = function(win) {
-            const show = _originalIsOverviewWindow.call(this, win);
+            const show = originalIsOverviewWindow.call(this, win);
 
             let metaWindow = win;
             if (win.get_meta_window) {
                 metaWindow = win.get_meta_window();
             }
 
-            // Check if this window is in our hidden list
-            if (switcher._lastHiddenWindows && switcher._lastHiddenWindows.length > 0) {
-                const isHidden = switcher._lastHiddenWindows.some(hiddenWin =>
-                    hiddenWin && metaWindow && hiddenWin.get_id() === metaWindow.get_id()
-                );
-
-                if (isHidden) {
-                    return false; // Don't show in Overview!
-                }
-            }
-
-            return show;
+            const hiddenWindows = switcher._lastHiddenWindows || [];
+            return show && shouldShowInOverview(
+                metaWindow,
+                hiddenWindows,
+                switcher._settings.get_boolean('hide-windows-from-overview'),
+                switcher._settings.get_boolean('hide-minimized-windows-from-overview')
+            );
         };
 
         return GLib.SOURCE_REMOVE;
     });
+
+    // Avoid duplicate focus handlers when either overview filter setting changes
+    if (switcher._hiddenWindowFocusId) return;
 
     // Monitor window focus to clear hidden state when activated externally
     // (e.g., clicking in Dash, App Grid, or Alt+Tab)
@@ -856,8 +859,12 @@ export function enableHiddenWindowFiltering(switcher) {
  * @param {ClassicAppSwitcher} switcher - The switcher instance
  */
 export function disableHiddenWindowFiltering(switcher) {
+    switcher._overviewWindowFilteringTarget = false;
+
     // Defer the restore to avoid race conditions
     GLib.idle_add(GLib.PRIORITY_LOW, () => {
+        if (switcher._overviewWindowFilteringTarget) return GLib.SOURCE_REMOVE;
+
         if (_originalIsOverviewWindow) {
             Workspace.prototype._isOverviewWindow = _originalIsOverviewWindow;
             _originalIsOverviewWindow = null;
