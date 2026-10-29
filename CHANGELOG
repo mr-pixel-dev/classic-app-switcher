@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 We go to the next version after each release on the
 [GNOME Shell Extensions website] (https://extensions.gnome.org/).
 
+## [3.1] - 2026-08-31
+
+- Updated Release for GNOME Shell 46, 47, 48, 49, 50 & 51
+
+### Added
+
+- Dash icon clicks now correctly restore hidden application windows using CAS logic
+- Fade animation when restoring hidden or minimized windows via Super+U or the Dash
+- Switcher menu toggle using Super+F Hotkey
+- Context menu access via keyboard navigation CtrlAltTab UI (Shift+F10)
+- en_GB translation
+- Dash It! extension compatibility (EGO submission pending)
+- GNOME 51 Support
+
+### Fixed
+
+- Scroll wheel on panel indicator no longer causes minimized windows to fly onto the desktop
+- Show Recent (Super+U) now correctly restores only the most recently hidden application
+- Pre-minimized windows no longer incorrectly animate onto the desktop during Hide/Show cycles
+- Hidden windows now reliably excluded from the Activities Overview across enable/disable cycles
+- Prevent app-icon dimming in switcher-menu when all windows are minimized only
+- Missing CSS properties for popup-menu panel spacing when boxpointer is disabled
+- Panel indicator positioning logic
+
+### Removed
+
+- N/A
+
+### Notes
+
+- Recommended update for all users on GNOME 46-51
+
 ## [3.0] - 2026-02-16
 
 - Updated Release for GNOME Shell 46, 47, 48, 49 & 50

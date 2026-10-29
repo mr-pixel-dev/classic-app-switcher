@@ -1,23 +1,39 @@
 'use strict';
 
+/**
+ * @fileoverview Panel Page for Classic App Switcher preferences.
+ *
+ * Configures appearance, position, and menu options for the top panel indicator.
+ *
+ * @module panelPage
+ */
+
 import Adw from 'gi://Adw';
 import Gio from 'gi://Gio';
 import Gtk from 'gi://Gtk';
 import GObject from 'gi://GObject';
 
-import {
-    gettext as _
-} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
+import {gettext as _} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
 /**
- * Panel Indicator Settings Page
- * Handles appearance and positioning of the panel indicator
+ * Preferences page displaying appearance and positioning of the panel indicator
+ *
+ * @class
+ * @extends Adw.PreferencesPage
  */
 export class PanelPage extends Adw.PreferencesPage {
     static {
-        GObject.registerClass(this);
+        GObject.registerClass(
+            {
+                GTypeName: 'ClassicAppSwitcherPanelPage',
+            },
+            this
+        );
     }
 
+    /**
+     * @param {Gio.Settings} settings - Extension GSettings instance
+     */
     constructor(settings) {
         super({
             title: _('Panel'),
@@ -25,10 +41,13 @@ export class PanelPage extends Adw.PreferencesPage {
             name: 'PanelPage',
         });
 
+        /** @private @type {Gio.Settings} */
         this._settings = settings;
 
         // Check libadwaita version for compatibility
-        const adwVersion = Adw.get_major_version() * 100 + Adw.get_minor_version();
+        const adwVersion =
+            Adw.get_major_version() * 100 + Adw.get_minor_version();
+        /** @private @type {boolean} */
         this._useDimmedClass = adwVersion >= 107; // GNOME 48+
 
         this._buildIndicatorGroup();
@@ -37,6 +56,12 @@ export class PanelPage extends Adw.PreferencesPage {
         this._buildInfoGroup();
     }
 
+    /**
+     * Build indicator presentation group (application label toggle)
+     *
+     * @private
+     * @returns {void}
+     */
     _buildIndicatorGroup() {
         const indicatorGroup = new Adw.PreferencesGroup({
             title: _('Indicator'),
@@ -46,7 +71,9 @@ export class PanelPage extends Adw.PreferencesPage {
         // Show Label Row
         const showLabelRow = new Adw.SwitchRow({
             title: _('Show Application Name'),
-            subtitle: _('Display the name of the focused application in the panel'),
+            subtitle: _(
+                'Display the name of the focused application in the panel'
+            ),
         });
         this._settings.bind(
             'show-label',
@@ -59,9 +86,15 @@ export class PanelPage extends Adw.PreferencesPage {
         this.add(indicatorGroup);
     }
 
+    /**
+     * Build popup menu options group (boxpointer visibility)
+     *
+     * @private
+     * @returns {void}
+     */
     _buildMenuGroup() {
         const menuGroup = new Adw.PreferencesGroup({
-            title: _('Menu'),
+            title: _('Switcher'),
             description: _('Customize the menu appearance'),
         });
 
@@ -78,13 +111,55 @@ export class PanelPage extends Adw.PreferencesPage {
         );
         menuGroup.add(hideBoxpointerRow);
 
+        // Create info button
+        const infoButton = new Gtk.MenuButton({
+            icon_name: 'info-outline-symbolic',
+            tooltip_text: _('More Information'),
+            valign: Gtk.Align.CENTER,
+        });
+        infoButton.add_css_class('flat');
+
+        // Create popover content
+        const popoverBox = new Gtk.Box({
+            orientation: Gtk.Orientation.VERTICAL,
+            spacing: 6,
+            margin_start: 6,
+            margin_end: 6,
+        });
+
+        const popoverLabel = new Gtk.Label({
+            label: _(
+                'The switcher menu can be toggled from the desktop by pressing Super+F allowing keyboard interaction.'
+            ),
+            wrap: true,
+            max_width_chars: 40,
+            xalign: 0,
+        });
+
+        popoverBox.append(popoverLabel);
+
+        const popover = new Gtk.Popover({
+            child: popoverBox,
+        });
+        infoButton.set_popover(popover);
+
+        menuGroup.header_suffix = infoButton;
+
         this.add(menuGroup);
     }
 
+    /**
+     * Build top panel positioning options group (left/center/right box, index offset)
+     *
+     * @private
+     * @returns {void}
+     */
     _buildPositionGroup() {
         const positionGroup = new Adw.PreferencesGroup({
-            title: _('Panel Position'),
-            description: _('Configure where the indicator appears in the panel'),
+            title: _('Position'),
+            description: _(
+                'Configure where the indicator appears in the panel'
+            ),
         });
 
         // Panel Box Row
@@ -105,7 +180,7 @@ export class PanelPage extends Adw.PreferencesPage {
         panelBoxRow.selected = boxIndex >= 0 ? boxIndex : 2;
 
         // Connect change handler
-        panelBoxRow.connect('notify::selected', (widget) => {
+        panelBoxRow.connect('notify::selected', widget => {
             const selected = ['left', 'center', 'right'][widget.selected];
             this._settings.set_string('panel-box', selected);
         });
@@ -115,7 +190,9 @@ export class PanelPage extends Adw.PreferencesPage {
         // Position Offset Row
         const positionOffsetRow = new Adw.SpinRow({
             title: _('Position Offset'),
-            subtitle: _('Fine-tune position (0 = default, negative = left, positive = right)'),
+            subtitle: _(
+                'Fine-tune position (0 = default, negative = left, positive = right)'
+            ),
             adjustment: new Gtk.Adjustment({
                 lower: -10,
                 upper: 10,
@@ -136,6 +213,12 @@ export class PanelPage extends Adw.PreferencesPage {
         this.add(positionGroup);
     }
 
+    /**
+     * Build informational tip footer regarding panel positioning
+     *
+     * @private
+     * @returns {void}
+     */
     _buildInfoGroup() {
         const infoGroup = new Adw.PreferencesGroup();
 
@@ -147,6 +230,7 @@ export class PanelPage extends Adw.PreferencesPage {
             margin_start: 12,
             margin_end: 12,
         });
+        infoBox.add_css_class('caption');
 
         const infoIcon = new Gtk.Image({
             icon_name: 'dialog-information-symbolic',
@@ -154,8 +238,12 @@ export class PanelPage extends Adw.PreferencesPage {
         });
 
         const infoLabel = new Gtk.Label({
-            label: _('Icon-only mode? ...try pushing the indicator to the end of the panel'),
-            tooltip_markup: _('Set the offset to <b>10</b> to place the button at the very end of the top panel'),
+            label: _(
+                'Icon-only mode? ...try pushing the indicator to the end of the panel'
+            ),
+            tooltip_markup: _(
+                'Set the offset to <b>10</b> to place the button at the very end of the top panel'
+            ),
             wrap: true,
             xalign: 0,
             hexpand: true,
@@ -163,7 +251,6 @@ export class PanelPage extends Adw.PreferencesPage {
         });
         infoLabel.add_css_class(this._useDimmedClass ? 'dimmed' : 'dim-label');
 
-        infoLabel.add_css_class('caption');
         infoGroup.add_css_class('card');
 
         infoBox.append(infoIcon);
@@ -172,3 +259,4 @@ export class PanelPage extends Adw.PreferencesPage {
         this.add(infoGroup);
     }
 }
+

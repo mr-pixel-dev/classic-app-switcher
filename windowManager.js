@@ -1,181 +1,346 @@
 'use strict';
 
+/**
+ * @fileoverview Window Manager - Window animations, visual effects, hide/restore
+ * operations and state tracking for Classic App Switcher.
+ *
+ * @module windowManager
+ */
+
 import Clutter from 'gi://Clutter';
 import GLib from 'gi://GLib';
 import Meta from 'gi://Meta';
 import Shell from 'gi://Shell';
 
+import {gettext as _} from 'resource:///org/gnome/shell/extensions/extension.js';
+import * as Dash from 'resource:///org/gnome/shell/ui/dash.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as WindowMenu from 'resource:///org/gnome/shell/ui/windowMenu.js';
-import {
-    Workspace
-} from 'resource:///org/gnome/shell/ui/workspace.js'
+import {Workspace} from 'resource:///org/gnome/shell/ui/workspace.js';
+
+/** @constant {number} Hide/show animation duration in milliseconds */
+const HIDE_WINDOW_ANIMATION_TIME = 250;
+
+/** @constant {number} Staggered hide animation duration in milliseconds */
+const HIDE_OTHERS_ANIMATION_TIME = 150;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Visual Effects
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Window Manager - Handles all window and application management operations
- * All functions receive the switcher instance as first parameter
+ * Applies the hidden visual effect (desaturation and brightness/contrast) to a window.
+ *
+ * @param {Meta.Window} window - The window to apply the effect to.
  */
+function applyHiddenEffect(window) {
+    if (window.window_type !== Meta.WindowType.NORMAL) return;
+    const actor = window.get_compositor_private();
+    if (!actor || actor.is_destroyed()) return;
+
+    if (!actor.get_effect('hidden-desaturation')) {
+        const desaturate = new Clutter.DesaturateEffect();
+        desaturate.set_factor(1.0);
+        actor.add_effect_with_name('hidden-desaturation', desaturate);
+
+        const brightness = new Clutter.BrightnessContrastEffect();
+        brightness.set_brightness(-0.05);
+        brightness.set_contrast(-0.05);
+        actor.add_effect_with_name('hidden-brightness', brightness);
+    }
+}
 
 /**
- * Raise multiple windows to front in proper stacking order
- * Most recent window ends up on top with focus
- * @param {Array<Meta.Window>} windows - Windows sorted by user time (most recent first)
+ * Applies the minimized visual effect to a window.
+ *
+ * @param {Meta.Window} window - The window to apply the minimized effect to.
  */
-export function raiseWindowsToFront(windows) {
-    if (windows.length === 0) return;
+function applyMinimizedEffect(window) {
+    if (window.window_type !== Meta.WindowType.NORMAL) return;
+    const actor = window.get_compositor_private();
+    if (!actor || actor.is_destroyed()) return;
 
+    if (!actor.get_effect('minimized-desaturation')) {
+        const desaturate = new Clutter.DesaturateEffect();
+        desaturate.set_factor(0.25);
+        actor.add_effect_with_name('minimized-desaturation', desaturate);
+
+        const brightness = new Clutter.BrightnessContrastEffect();
+        brightness.set_brightness(0.05);
+        brightness.set_contrast(-0.05);
+        actor.add_effect_with_name('minimized-brightness', brightness);
+    }
+}
+
+/**
+ * Removes all hidden and minimized effects from a window's actor.
+ *
+ * @param {Meta.Window} window - The window whose effects should be removed.
+ */
+function removeAllEffects(window) {
+    const actor = window.get_compositor_private();
+    if (!actor) return;
+    [
+        'hidden-desaturation',
+        'hidden-brightness',
+        'minimized-desaturation',
+        'minimized-brightness',
+    ].forEach(name => {
+        actor.remove_effect_by_name(name);
+    });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Animations
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Fades in a batch of windows and activates the target window upon completion.
+ *
+ * @param {Meta.Window[]} windows - Array of windows to fade in.
+ * @param {Meta.Window} targetWindow - The target window to activate after animations complete.
+ */
+function fadeInAndActivate(windows, targetWindow) {
+    if (!windows.length) {
+        if (targetWindow)
+            Main.activateWindow(targetWindow, global.get_current_time());
+        return;
+    }
+
+    let completed = 0;
     const timestamp = global.get_current_time();
 
-    // Activate in reverse order (oldest first) to build proper stack
-    // Each activation brings that window to front
-    // Most recent window (index 0) is activated last, so it ends up on top
+    windows.forEach(window => {
+        const actor = window.get_compositor_private();
+        if (actor) actor.opacity = 0;
+        window._isUnhideOperation = true;
+        window.unminimize();
+    });
+
+    for (let i = windows.length - 1; i >= 0; i--) {
+        windows[i].raise();
+    }
+
+    windows.forEach(window => {
+        const actor = window.get_compositor_private();
+        const finishStep = () => {
+            GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+                window._isUnhideOperation = null;
+                completed++;
+                if (completed === windows.length && targetWindow) {
+                    Main.activateWindow(targetWindow, timestamp);
+                }
+                return GLib.SOURCE_REMOVE;
+            });
+        };
+
+        if (actor && !actor.is_destroyed()) {
+            actor.ease({
+                opacity: 255,
+                duration: HIDE_WINDOW_ANIMATION_TIME,
+                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+                onStopped: finishStep,
+            });
+        } else {
+            finishStep();
+        }
+    });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Window State Tracking
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Initializes the switcher state tracking properties if not already present.
+ *
+ * @param {Object} switcher - The switcher instance.
+ */
+function initSwitcherState(switcher) {
+    if (!switcher._lastHiddenWindows) switcher._lastHiddenWindows = [];
+}
+
+/**
+ * Adds a window to the switcher's list of hidden windows.
+ *
+ * @param {Object} switcher - The switcher instance.
+ * @param {Meta.Window} window - The window to track as hidden.
+ */
+function addHidden(switcher, window) {
+    initSwitcherState(switcher);
+    if (
+        !switcher._lastHiddenWindows.some(w => w.get_id() === window.get_id())
+    ) {
+        switcher._lastHiddenWindows.push(window);
+    }
+}
+
+/**
+ * Clears tracking for all windows belonging to a specific application.
+ *
+ * @param {Object} switcher - The switcher instance.
+ * @param {Shell.App} app - The application whose windows should be cleared.
+ */
+function clearAppTracking(switcher, app) {
+    if (!switcher._lastHiddenWindows?.length) return;
+    const appWindowIds = new Set(app.get_windows().map(w => w.get_id()));
+    switcher._lastHiddenWindows = switcher._lastHiddenWindows.filter(
+        win => !appWindowIds.has(win.get_id())
+    );
+    if (switcher._lastHiddenWindows.length === 0) {
+        switcher._lastHiddenApp = null;
+    }
+}
+
+// ============================================================================
+// Core Exported API
+// ============================================================================
+
+/**
+ * Raises a list of windows to the front by activating them in reverse order.
+ *
+ * @param {Meta.Window[]} windows - Array of windows to raise.
+ */
+export function raiseWindowsToFront(windows) {
+    if (!windows?.length) return;
+    const timestamp = global.get_current_time();
     for (let i = windows.length - 1; i >= 0; i--) {
         Main.activateWindow(windows[i], timestamp);
     }
 }
 
 /**
- * Activate an application by bringing its windows to focus
- * @param {ClassicAppSwitcher} switcher - The switcher instance
- * @param {Shell.App} app - The application to activate
- * @param {Meta.Workspace} workspace - The current workspace
+ * Activates a specific application within a given workspace, managing its window states
+ * while respecting pre-minimized windows.
+ *
+ * @param {Object} switcher - The switcher instance.
+ * @param {Shell.App} app - The application to activate.
+ * @param {Meta.Workspace} workspace - The workspace context.
  */
 export function activateApplication(switcher, app, workspace) {
-    // Close menus when activating an app
     switcher._closeAllMenus();
 
-    // Get windows in proper stacking order from the display
-    const allWindowsInStack = global.display.get_tab_list(Meta.TabList.NORMAL, workspace);
-
-    // Filter to only this app's windows on this workspace
-    const windows = allWindowsInStack.filter(w =>
-        app.get_windows().includes(w) && w.get_workspace() === workspace
+    const allWindows = global.display.get_tab_list(
+        Meta.TabList.NORMAL,
+        workspace
+    );
+    const appWindows = allWindows.filter(
+        window =>
+            app.get_windows().includes(window) &&
+            window.get_workspace() === workspace
     );
 
-    if (windows.length === 0) return;
+    if (!appWindows.length) return;
+    appWindows.sort((a, b) => b.get_user_time() - a.get_user_time());
 
-    // Sort by user time (most recent first)
-    windows.sort((a, b) => b.get_user_time() - a.get_user_time());
+    const hiddenIds = new Set(
+        switcher._lastHiddenWindows?.map(w => w.get_id()) || []
+    );
 
-    // Separate minimized and visible windows
-    const minimizedWindows = windows.filter(w => w.minimized);
-    const visibleWindows = windows.filter(w => !w.minimized);
+    // Find all windows flagged as hidden for this app
+    const rawHiddenWindows = appWindows.filter(
+        w => w.minimized && (w._isHidden || hiddenIds.has(w.get_id()))
+    );
 
-    if (minimizedWindows.length > 0) {
-        // If there are minimized windows, restore them all
-        minimizedWindows.forEach(win => win.unminimize());
-
-        // Raise all minimized windows to front in proper stacking order
-        raiseWindowsToFront(minimizedWindows);
-    } else if (visibleWindows.length > 1) {
-        // Multiple visible windows - raise them all to front
-        raiseWindowsToFront(visibleWindows);
-    } else {
-        // Single visible window, just activate it
-        Main.activateWindow(windows[0], global.get_current_time());
-    }
-
-    // CRITICAL: Clear hidden window tracking for this app
-    // This ensures windows show in Overview after being activated
-    if (switcher._lastHiddenWindows && switcher._lastHiddenWindows.length > 0) {
-        // Remove all windows of this app from hidden tracking
-        const appWindows = app.get_windows();
-        switcher._lastHiddenWindows = switcher._lastHiddenWindows.filter(hiddenWin => {
-            return !appWindows.some(appWin => appWin.get_id() === hiddenWin.get_id());
-        });
-
-        // If we've cleared all hidden windows, clear the app tracking too
-        if (switcher._lastHiddenWindows.length === 0) {
-            switcher._lastHiddenApp = null;
+    // Separate genuinely hidden windows from those that were already minimized before being hidden
+    const fadeWindows = [];
+    rawHiddenWindows.forEach(window => {
+        if (window._wasMinimizedBeforeHide) {
+            window._isHidden = null;
+            window._wasMinimizedBeforeHide = null;
+            removeAllEffects(window);
+            if (switcher._settings.get_boolean('enable-overview-effects'))
+                applyMinimizedEffect(window);
+            window.notify('minimized');
+        } else {
+            fadeWindows.push(window);
         }
-    }
-
-    // Force menu refresh to update list order and checkmark
-    switcher._clearTimeout('_updateTimeoutId');
-    switcher._updateTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 100, () => {
-        // Defensive: Check switcher still exists and has the method
-        if (switcher && switcher._update) {
-            switcher._update();
-        }
-        switcher._updateTimeoutId = null;
-        return GLib.SOURCE_REMOVE;
     });
+
+    const manuallyMinimized = appWindows.filter(
+        w =>
+            w.minimized &&
+            !w._isHidden &&
+            !hiddenIds.has(w.get_id()) &&
+            !w._wasMinimizedBeforeHide
+    );
+    const visible = appWindows.filter(w => !w.minimized);
+
+    if (fadeWindows.length > 0) {
+        fadeInAndActivate(fadeWindows, fadeWindows[0]);
+    } else if (manuallyMinimized.length > 0 && visible.length === 0) {
+        const targetWindow = manuallyMinimized[0];
+        targetWindow.unminimize();
+        Main.activateWindow(targetWindow, global.get_current_time());
+    } else if (visible.length > 1) {
+        raiseWindowsToFront(visible);
+    } else if (visible.length === 1) {
+        Main.activateWindow(visible[0], global.get_current_time());
+    } else if (manuallyMinimized.length > 0) {
+        const targetWindow = manuallyMinimized[0];
+        targetWindow.unminimize();
+        Main.activateWindow(targetWindow, global.get_current_time());
+    }
+
+    clearAppTracking(switcher, app);
+
+    switcher._clearTimeout('_updateTimeoutId');
+    switcher._updateTimeoutId = GLib.timeout_add(
+        GLib.PRIORITY_DEFAULT,
+        100,
+        () => {
+            switcher._update();
+            switcher._updateTimeoutId = null;
+            return GLib.SOURCE_REMOVE;
+        }
+    );
 }
 
 /**
- * Hide all windows of the currently focused application on current workspace
- * (Using 'Hide' in menu or Super+H)
- * Windows fade out instead of flying to corner for visual distinction
- * @param {ClassicAppSwitcher} switcher - The switcher instance
+ * Hides all windows belonging to the currently focused application.
+ *
+ * @param {Object} switcher - The switcher instance.
  */
 export function hideCurrentApp(switcher) {
     const focusedApp = Shell.WindowTracker.get_default().focus_app;
     if (!focusedApp) return;
 
     const workspace = global.workspace_manager.get_active_workspace();
+    initSwitcherState(switcher);
 
-    if (!switcher._lastHiddenWindows) {
-        switcher._lastHiddenWindows = [];
-    }
+    focusedApp.get_windows().forEach(window => {
+        if (window.get_workspace() !== workspace) return;
 
-    focusedApp.get_windows().forEach(win => {
-        if (win.get_workspace() === workspace) {
-            // Track ALL windows of this app (even already minimized ones)
-            const alreadyTracked = switcher._lastHiddenWindows.some(
-                hiddenWin => hiddenWin.get_id() === win.get_id()
-            );
+        addHidden(switcher, window);
 
-            if (!alreadyTracked) {
-                switcher._lastHiddenWindows.push(win);
-            }
-
-            // Check if window is already minimized
-            if (win.minimized) {
-                // Already minimized - upgrade effect to hidden (if effects enabled)
-                if (switcher._settings.get_boolean('enable-overview-effects')) {
-                    const actor = win.get_compositor_private();
-                    if (actor) {
-                        // Safety: Only swap effects if actor is valid and realized
-                        if (!actor.is_destroyed() && actor.get_stage()) {
-                            // Remove minimized effects
-                            actor.remove_effect_by_name('minimized-desaturation');
-                            actor.remove_effect_by_name('minimized-brightness');
-
-                            // Apply hidden effects LIVE
-                            applyHiddenEffect(win);
-                        }
-                    }
-                }
+        if (window.minimized) {
+            if (switcher._settings.get_boolean('enable-overview-effects'))
+                applyHiddenEffect(window);
+            window._isHidden = true;
+            window._wasMinimizedBeforeHide = true;
+            window.notify('minimized');
+        } else {
+            const actor = window.get_compositor_private();
+            if (actor && !actor.is_destroyed()) {
+                actor.ease({
+                    opacity: 0,
+                    duration: HIDE_WINDOW_ANIMATION_TIME,
+                    mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+                    onStopped: () => {
+                        GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+                            if (window && window.get_compositor_private()) {
+                                window._isHideOperation = true;
+                                window.minimize();
+                            }
+                            if (actor && !actor.is_destroyed())
+                                actor.opacity = 255;
+                            return GLib.SOURCE_REMOVE;
+                        });
+                    },
+                });
             } else {
-                // Not minimized - animate and minimize
-                const actor = win.get_compositor_private();
-                if (actor && !actor.is_destroyed()) {
-                    // Fade out animation
-                    actor.ease({
-                        opacity: 0,
-                        duration: 200,
-                        mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-                        onComplete: () => {
-                            // DECOUPLING FIX: Move minimize to next idle cycle to avoid g_closure_unref
-                            GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
-                                if (win && !win.is_destroyed?.()) {
-                                    // Mark as hide operation (signal handler will apply hidden effect)
-                                    win._isHideOperation = true;
-                                    win.minimize();
-                                }
-                                // Reset opacity for when window is shown again
-                                if (actor && !actor.is_destroyed()) {
-                                    actor.opacity = 255;
-                                }
-                                return GLib.SOURCE_REMOVE;
-                            });
-                        }
-                    });
-                } else {
-                    // Fallback if no actor or actor destroyed
-                    win._isHideOperation = true;
-                    win.minimize();
-                }
+                window._isHideOperation = true;
+                window.minimize();
             }
         }
     });
@@ -185,689 +350,691 @@ export function hideCurrentApp(switcher) {
 }
 
 /**
- * Show the most recently hidden application on current workspace (via Super+U)
- * @param {ClassicAppSwitcher} switcher - The switcher instance
+ * Restores the most recently hidden application's windows (undo last hide).
+ * If no specific app is targeted (_lastHiddenApp is null), does nothing —
+ * use showAll() to restore any remaining hidden windows.
+ *
+ * @param {Object} switcher - The switcher instance.
  */
 export function showRecentApp(switcher) {
-    // Check if we have tracked hidden windows
-    if (!switcher._lastHiddenWindows || switcher._lastHiddenWindows.length === 0) {
-        return;
-    }
+    if (!switcher._lastHiddenWindows?.length) return;
+
+    const targetApp = switcher._lastHiddenApp;
+    if (!targetApp) return;
 
     const workspace = global.workspace_manager.get_active_workspace();
+    const targetIds = new Set(targetApp.get_windows().map(w => w.get_id()));
 
-    // Filter to only windows that are still minimized and on current workspace
-    const windowsToRestore = switcher._lastHiddenWindows.filter(win => {
-        return win?.minimized && win?.get_workspace() === workspace;
-    });
+    const windowsToRestore = switcher._lastHiddenWindows.filter(
+        w =>
+            w?.minimized &&
+            w.get_workspace() === workspace &&
+            targetIds.has(w.get_id())
+    );
+    const remainingHidden = switcher._lastHiddenWindows.filter(
+        w => !targetIds.has(w.get_id())
+    );
 
-    if (windowsToRestore.length === 0) {
-        // All tracked windows are already visible or destroyed
-        switcher._lastHiddenWindows = [];
+    if (!windowsToRestore.length) {
+        switcher._lastHiddenWindows = remainingHidden;
         switcher._lastHiddenApp = null;
         return;
     }
 
-    // Get windows in proper stacking order from the display FIRST
-    const allWindowsInStack = global.display.get_tab_list(Meta.TabList.NORMAL, workspace);
-
-    // Create a Set for fast lookup
-    const windowsToRestoreSet = new Set(windowsToRestore.map(w => w.get_id()));
-
-    // Filter the stacked list to only our windows, preserving stack order
-    const orderedWindows = allWindowsInStack.filter(w =>
-        windowsToRestoreSet.has(w.get_id())
+    const allWindows = global.display.get_tab_list(
+        Meta.TabList.NORMAL,
+        workspace
+    );
+    const windowIdsToRestore = new Set(windowsToRestore.map(w => w.get_id()));
+    const orderedWindows = allWindows.filter(w =>
+        windowIdsToRestore.has(w.get_id())
     );
 
-    // Restore the windows we specifically hid
-    orderedWindows.forEach(win => win.unminimize());
+    const fadeWindows = [];
 
-    // Sort by user time (most recent first)
-    orderedWindows.sort((a, b) => b.get_user_time() - a.get_user_time());
+    orderedWindows.forEach(window => {
+        if (window._wasMinimizedBeforeHide) {
+            window._isHidden = null;
+            window._wasMinimizedBeforeHide = null;
+            removeAllEffects(window);
+            if (switcher._settings.get_boolean('enable-overview-effects'))
+                applyMinimizedEffect(window);
+            window.notify('minimized');
+        } else {
+            fadeWindows.push(window);
+        }
+    });
 
-    // Raise all windows to front in proper stacking order
-    raiseWindowsToFront(orderedWindows);
+    for (let i = orderedWindows.length - 1; i >= 0; i--) {
+        orderedWindows[i].raise();
+    }
 
-    // Clear the tracking since we've restored them
-    switcher._lastHiddenWindows = [];
+    fadeInAndActivate(fadeWindows, orderedWindows[0]);
+
+    switcher._lastHiddenWindows = remainingHidden;
     switcher._lastHiddenApp = null;
-
     switcher._scheduleUpdate();
 }
 
 /**
- * Hide all applications except the currently focused application on the current workspace
- * ('Hide Others' in menu or via Alt+Super+H)
- * @param {ClassicAppSwitcher} switcher - The switcher instance
+ * Hides all windows except those belonging to the currently focused application.
+ *
+ * @param {Object} switcher - The switcher instance.
  */
 export function hideOthers(switcher) {
     const focusedApp = Shell.WindowTracker.get_default().focus_app;
     if (!focusedApp) return;
 
     const workspace = global.workspace_manager.get_active_workspace();
-    const allWindows = global.display.get_tab_list(Meta.TabList.NORMAL, workspace);
+    const allWindows = global.display.get_tab_list(
+        Meta.TabList.NORMAL,
+        workspace
+    );
+    const tracker = Shell.WindowTracker.get_default();
 
-    // Initialize tracking array if it doesn't exist
-    if (!switcher._lastHiddenWindows) {
-        switcher._lastHiddenWindows = [];
-    }
-
-    // Collect windows to hide
+    initSwitcherState(switcher);
     const windowsToHide = [];
-    allWindows.forEach(win => {
-        const winApp = Shell.WindowTracker.get_default().get_window_app(win);
 
-        // Process windows that belong to OTHER apps
-        if (winApp !== focusedApp) {
-            // Track the window
-            const alreadyTracked = switcher._lastHiddenWindows.some(
-                hiddenWin => hiddenWin.get_id() === win.get_id()
-            );
+    allWindows.forEach(window => {
+        const windowApp = tracker.get_window_app(window);
+        if (!windowApp || windowApp === focusedApp) return;
 
-            if (!alreadyTracked) {
-                switcher._lastHiddenWindows.push(win);
-            }
+        addHidden(switcher, window);
 
-            // Check if already minimized
-            if (win.minimized) {
-                // Already minimized - upgrade effect to hidden LIVE (if effects enabled)
-                if (switcher._settings.get_boolean('enable-overview-effects')) {
-                    const actor = win.get_compositor_private();
-                    if (actor && !actor.is_destroyed() && actor.get_stage()) {
-                        actor.remove_effect_by_name('minimized-desaturation');
-                        actor.remove_effect_by_name('minimized-brightness');
-                        applyHiddenEffect(win);
-                    }
-                }
-            } else {
-                // Not minimized - add to animation queue
-                windowsToHide.push(win);
-            }
+        if (window.minimized) {
+            if (switcher._settings.get_boolean('enable-overview-effects'))
+                applyHiddenEffect(window);
+            window._isHidden = true;
+            window._wasMinimizedBeforeHide = true;
+            window.notify('minimized');
+        } else {
+            windowsToHide.push(window);
         }
     });
 
-    // Staggered fade animation for visual polish
-    // Clear any previous stagger timeouts before starting a new batch
+    switcher._lastHiddenApp = null;
+
     if (switcher._staggerTimeoutIds) {
         switcher._staggerTimeoutIds.forEach(id => GLib.Source.remove(id));
     }
     switcher._staggerTimeoutIds = [];
 
-    windowsToHide.forEach((win, index) => {
-        const actor = win.get_compositor_private();
-
-        // Defensive: Check actor validity before creating timeout
-        if (!actor || actor.is_destroyed()) {
-            win._isHideOperation = true;
-            win.minimize();
-
-            // Update if this is the last window
-            if (index === windowsToHide.length - 1) {
-                switcher._scheduleUpdate();
-            }
-            return;
-        }
-
-        // Stagger each window by 30ms for cascading effect
-        const staggerId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, index * 30, () => {
-            switcher._staggerTimeoutIds = switcher._staggerTimeoutIds?.filter(id => id !== staggerId) ?? [];
-            // Defensive: Check again inside timeout (actor might be destroyed by now)
-            if (!actor.is_destroyed()) {
-                actor.ease({
-                    opacity: 0,
-                    duration: 150,
-                    mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-                    onComplete: () => {
-                        // DECOUPLING FIX: Move minimize to next idle cycle
-                        GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
-                            if (win && !win.is_destroyed?.()) {
-                                win._isHideOperation = true;
-                                win.minimize();
-                            }
-                            if (actor && !actor.is_destroyed()) {
-                                actor.opacity = 255;
-                            }
-
-                            // Update menu after LAST window finishes animating
-                            if (index === windowsToHide.length - 1) {
-                                switcher._scheduleUpdate();
-                            }
-                            return GLib.SOURCE_REMOVE;
-                        });
-                    }
-                });
-            } else {
-                // Actor destroyed during timeout delay
-                win._isHideOperation = true;
-                win.minimize();
-
-                if (index === windowsToHide.length - 1) {
-                    switcher._scheduleUpdate();
-                }
-            }
-            return GLib.SOURCE_REMOVE;
-        });
-        switcher._staggerTimeoutIds.push(staggerId);
-    });
-
-    // If no windows to animate (all were already minimized), update now
-    if (windowsToHide.length === 0) {
+    if (!windowsToHide.length) {
         switcher._scheduleUpdate();
-    }
-}
-
-/**
- * Show all (hidden/minimized) applications and windows on the current workspace
- * ('Show All' in menu or via Alt+Super+U)
- * @param {ClassicAppSwitcher} switcher - The switcher instance
- */
-export function showAll(switcher) {
-    const workspace = global.workspace_manager.get_active_workspace();
-    const allWindows = global.display.get_tab_list(Meta.TabList.NORMAL, workspace);
-
-    // Get all minimized windows
-    const minimizedWindows = allWindows.filter(win => win.minimized);
-
-    if (minimizedWindows.length === 0) return;
-
-    // Sort by user time (most recent first)
-    minimizedWindows.sort((a, b) => b.get_user_time() - a.get_user_time());
-
-    // Unminimize all windows first
-    minimizedWindows.forEach(win => win.unminimize());
-
-    // Raise all windows to front in proper stacking order
-    raiseWindowsToFront(minimizedWindows);
-
-    // Clear ALL hidden window tracking since we're showing everything
-    switcher._lastHiddenWindows = [];
-    switcher._lastHiddenApp = null;
-
-    switcher._scheduleUpdate();
-}
-
-/**
- * Minimize the currently focused window on the current workspace (via Super+M)
- * @param {ClassicAppSwitcher} switcher - The switcher instance
- */
-export function minimizeCurrentWindow(switcher) {
-    const focusWindow = global.display.focus_window;
-    if (!focusWindow) return;
-
-    // Track this window so we can unminimize it (via Alt+Super+M)
-    switcher._lastMinimizedWindow = focusWindow;
-
-    // Minimize just this one window
-    focusWindow.minimize();
-
-    switcher._scheduleUpdate();
-}
-
-/**
- * Unminimize the most recently minimized window on the current workspace (via Alt+Super+M)
- * @param {ClassicAppSwitcher} switcher - The switcher instance
- */
-export function unminimizeRecentWindow(switcher) {
-    // Check if we have a tracked minimized window
-    if (!switcher._lastMinimizedWindow) {
         return;
     }
 
+    windowsToHide.forEach((window, index) => {
+        const actor = window.get_compositor_private();
+        const isLastWindow = index === windowsToHide.length - 1;
+
+        if (!actor || actor.is_destroyed()) {
+            window._isHideOperation = true;
+            window.minimize();
+            if (isLastWindow) switcher._scheduleUpdate();
+            return;
+        }
+
+        const timeoutId = GLib.timeout_add(
+            GLib.PRIORITY_DEFAULT,
+            index * 30,
+            () => {
+                switcher._staggerTimeoutIds =
+                    switcher._staggerTimeoutIds?.filter(
+                        id => id !== timeoutId
+                    ) ?? [];
+                if (actor.is_destroyed()) {
+                    window._isHideOperation = true;
+                    window.minimize();
+                    if (isLastWindow) switcher._scheduleUpdate();
+                    return GLib.SOURCE_REMOVE;
+                }
+
+                actor.ease({
+                    opacity: 0,
+                    duration: HIDE_OTHERS_ANIMATION_TIME,
+                    mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+                    onStopped: () => {
+                        GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+                            if (window && window.get_compositor_private()) {
+                                window._isHideOperation = true;
+                                window.minimize();
+                            }
+                            if (actor && !actor.is_destroyed())
+                                actor.opacity = 255;
+                            if (isLastWindow) switcher._scheduleUpdate();
+                            return GLib.SOURCE_REMOVE;
+                        });
+                    },
+                });
+                return GLib.SOURCE_REMOVE;
+            }
+        );
+        switcher._staggerTimeoutIds.push(timeoutId);
+    });
+}
+
+/**
+ * Shows all windows on the current workspace — both extension-hidden
+ * and manually minimized. This is the nuclear option, clearing
+ * all hide state in the process.
+ *
+ * @param {Object} switcher - The switcher instance.
+ */
+export function showAll(switcher) {
     const workspace = global.workspace_manager.get_active_workspace();
+    const allWindows = global.display.get_tab_list(
+        Meta.TabList.NORMAL,
+        workspace
+    );
 
-    // Check if the window is still minimized and on current workspace
-    if (switcher._lastMinimizedWindow?.minimized &&
-        switcher._lastMinimizedWindow?.get_workspace() === workspace) {
-        // Unminimize and activate
-        switcher._lastMinimizedWindow.unminimize();
-        Main.activateWindow(switcher._lastMinimizedWindow, global.get_current_time());
-    }
+    const hidden = allWindows.filter(w => w.minimized);
 
-    // Clear the tracking since we've restored it
-    switcher._lastMinimizedWindow = null;
+    if (!hidden.length) return;
+    hidden.sort((a, b) => b.get_user_time() - a.get_user_time());
 
+    fadeInAndActivate(hidden, hidden[0]);
+
+    switcher._lastHiddenWindows = [];
+    switcher._lastHiddenApp = null;
     switcher._scheduleUpdate();
 }
 
 /**
- * Close the currently focused window on the current workspace (via Super+W)
- * @param {ClassicAppSwitcher} switcher - The switcher instance
+ * Minimizes the currently focused window.
+ *
+ * @param {Object} switcher - The switcher instance.
  */
-export function closeCurrentWindow(switcher) {
-    const focusWindow = global.display.focus_window;
-    if (!focusWindow) return;
-
-    // Close the window gracefully
-    focusWindow.delete(global.get_current_time());
+export function minimizeCurrentWindow(switcher) {
+    const window = global.display.focus_window;
+    if (!window) return;
+    switcher._lastMinimizedWindow = window;
+    window.minimize();
+    switcher._scheduleUpdate();
 }
 
 /**
- * Quit the currently focused application on the current workspace (via Super+Q)
- * @param {ClassicAppSwitcher} switcher - The switcher instance
+ * Unminimizes and activates the most recently minimized window.
+ *
+ * @param {Object} switcher - The switcher instance.
  */
-export function quitCurrentApp(switcher) {
-    const focusedApp = Shell.WindowTracker.get_default().focus_app;
-    if (!focusedApp) return;
+export function unminimizeRecentWindow(switcher) {
+    const window = switcher._lastMinimizedWindow;
+    const workspace = global.workspace_manager.get_active_workspace();
 
-    // Request the application to quit gracefully
-    focusedApp.request_quit();
-}
-
-/**
- * Apply hidden effect to a window (stronger visual distinction)
- * Used when windows are hidden via Hide/Hide Others commands
- * Full desaturation with darker appearance for maximum distinction
- * @param {Meta.Window} win - The window to apply hidden effect to
- */
-function applyHiddenEffect(win) {
-    if (win.window_type !== Meta.WindowType.NORMAL) return;
-
-    const actor = win.get_compositor_private();
-    if (!actor || actor.is_destroyed()) return;
-
-    const effectName = 'hidden-desaturation';
-    const brightnessEffectName = 'hidden-brightness';
-
-    // Only add if not already present
-    if (!actor.get_effect(effectName)) {
-        // Full desaturation (complete monochrome)
-        const desaturate = new Clutter.DesaturateEffect();
-        desaturate.set_factor(1.00);
-        actor.add_effect_with_name(effectName, desaturate);
-
-        // Brightness/Contrast reduction for darker appearance
-        const brightnessContrast = new Clutter.BrightnessContrastEffect();
-        brightnessContrast.set_brightness(-0.05); // Darker
-        brightnessContrast.set_contrast(-0.05); // Softer
-        actor.add_effect_with_name(brightnessEffectName, brightnessContrast);
+    if (window?.minimized && window.get_workspace() === workspace) {
+        window.unminimize();
+        Main.activateWindow(window, global.get_current_time());
     }
+    switcher._lastMinimizedWindow = null;
+    switcher._scheduleUpdate();
 }
 
 /**
- * Apply minimized effect to a window (subtle distinction)
- * Used when windows are manually minimized
- * Slight desaturation with lighter appearance
- * @param {Meta.Window} win - The window to apply minimized effect to
+ * Closes the currently focused window.
  */
-function applyMinimizedEffect(win) {
-    if (win.window_type !== Meta.WindowType.NORMAL) return;
-
-    const actor = win.get_compositor_private();
-    if (!actor || actor.is_destroyed()) return;
-
-    const effectName = 'minimized-desaturation';
-    const brightnessEffectName = 'minimized-brightness';
-
-    // Only add if not already present
-    if (!actor.get_effect(effectName)) {
-        // Subtle desaturation (25% desaturated)
-        const desaturate = new Clutter.DesaturateEffect();
-        desaturate.set_factor(0.25);
-        actor.add_effect_with_name(effectName, desaturate);
-
-        // Brightness/Contrast adjustment for lighter greyed-out look
-        const brightnessContrast = new Clutter.BrightnessContrastEffect();
-        brightnessContrast.set_brightness(0.05); // Lighter
-        brightnessContrast.set_contrast(-0.05); // Softer
-        actor.add_effect_with_name(brightnessEffectName, brightnessContrast);
-    }
+export function closeCurrentWindow() {
+    const window = global.display.focus_window;
+    if (window) window.delete(global.get_current_time());
 }
 
 /**
- * Remove all effects from a window (both hidden and minimized)
- * @param {Meta.Window} win - The window to restore
+ * Requests to quit the currently focused application.
  */
-function removeAllEffects(win) {
-    const actor = win.get_compositor_private();
-    if (!actor || actor.is_destroyed()) return;
-
-    // Remove hidden effects
-    actor.remove_effect_by_name('hidden-desaturation');
-    actor.remove_effect_by_name('hidden-brightness');
-
-    // Remove minimized effects  
-    actor.remove_effect_by_name('minimized-desaturation');
-    actor.remove_effect_by_name('minimized-brightness');
+export function quitCurrentApp() {
+    const app = Shell.WindowTracker.get_default().focus_app;
+    if (app) app.request_quit();
 }
 
 /**
- * Initialize CORE hide functionality (always active, not toggleable)
- * Handles opacity trick for animation blocking and hidden effect application
- * @param {ClassicAppSwitcher} switcher - The switcher instance
+ * Enables handling of window hiding operations and connects relevant window manager signals.
+ *
+ * @param {Object} switcher - The switcher instance.
  */
 export function enableHideHandling(switcher) {
-    // Store signal IDs for cleanup
-    if (!switcher._hideHandlingSignals) {
-        switcher._hideHandlingSignals = [];
+    if (!switcher._hideHandlingSignals) switcher._hideHandlingSignals = [];
+
+    if (!Main.wm._animateActorFilters_mrPixel) {
+        Main.wm._animateActorFilters_mrPixel = new Set();
+        Main.wm._origShouldAnimateActor_mrPixel =
+            Main.wm._shouldAnimateActor.bind(Main.wm);
+        Main.wm._shouldAnimateActor = (actor, types) => {
+            for (const filter of Main.wm._animateActorFilters_mrPixel) {
+                if (!filter(actor, types)) return false;
+            }
+            return Main.wm._origShouldAnimateActor_mrPixel(actor, types);
+        };
     }
 
-    // Handle hide operations - ALWAYS active
-    const hideMinimizeId = global.window_manager.connect('minimize', (wm, actor) => {
-        // SAFETY: Ensure actor still exists when signal fires
-        if (!actor || actor.is_destroyed()) return;
+    switcher._casAnimateActorFilter = actor => {
+        const win =
+            actor.meta_window ||
+            (actor.get_meta_window ? actor.get_meta_window() : null);
+        return !(win?._isHideOperation || win?._isUnhideOperation);
+    };
+    Main.wm._animateActorFilters_mrPixel.add(switcher._casAnimateActorFilter);
 
-        const win = actor.get_meta_window();
-        if (win && win._isHideOperation) {
-            // OPACITY TRICK: Disables GNOME's minimize animation (ALWAYS active)
-            // This differentiates Hide (instant vanish) from manual Minimize (fly animation)
-            actor.opacity = 255;
-
-            // Apply HIDDEN effect only if user enabled overview effects
-            if (switcher._settings.get_boolean('enable-overview-effects')) {
-                applyHiddenEffect(win);
+    const minimizeId = global.window_manager.connect(
+        'minimize',
+        (wm, actor) => {
+            if (!actor || actor.is_destroyed()) return;
+            const window = actor.get_meta_window();
+            if (window && window._isHideOperation) {
+                actor.opacity = 255;
+                if (switcher._settings.get_boolean('enable-overview-effects')) {
+                    applyHiddenEffect(window);
+                }
+                window._isHidden = true;
+                window._isHideOperation = null;
             }
-
-            delete win._isHideOperation;
         }
+    );
+
+    const unminimizeId = global.window_manager.connect(
+        'unminimize',
+        (wm, actor) => {
+            if (!actor || actor.is_destroyed()) return;
+            const window = actor.get_meta_window();
+            if (!window) return;
+
+            removeAllEffects(window);
+
+            if (window._isHidden && switcher._lastHiddenWindows) {
+                const windowId = window.get_id();
+                switcher._lastHiddenWindows =
+                    switcher._lastHiddenWindows.filter(
+                        w => w.get_id() !== windowId
+                    );
+                if (switcher._lastHiddenWindows.length === 0)
+                    switcher._lastHiddenApp = null;
+            }
+            window._isHidden = null;
+        }
+    );
+
+    switcher._hideHandlingSignals.push({
+        obj: global.window_manager,
+        id: minimizeId,
     });
     switcher._hideHandlingSignals.push({
         obj: global.window_manager,
-        id: hideMinimizeId
-    });
-
-    // Remove hidden effects on unminimize - ALWAYS active
-    const hideUnminimizeId = global.window_manager.connect('unminimize', (wm, actor) => {
-        // SAFETY: Ensure actor still exists
-        if (!actor || actor.is_destroyed()) return;
-
-        const win = actor.get_meta_window();
-        if (win) {
-            // Remove hidden effects
-            const winActor = win.get_compositor_private();
-            if (winActor) {
-                winActor.remove_effect_by_name('hidden-desaturation');
-                winActor.remove_effect_by_name('hidden-brightness');
-            }
-        }
-    });
-    switcher._hideHandlingSignals.push({
-        obj: global.window_manager,
-        id: hideUnminimizeId
+        id: unminimizeId,
     });
 }
 
 /**
- * Disable core hide handling
- * @param {ClassicAppSwitcher} switcher - The switcher instance
+ * Disables custom hide handling and disconnects associated signals.
+ *
+ * @param {Object} switcher - The switcher instance.
  */
 export function disableHideHandling(switcher) {
-    // Clear any pending stagger animation timeouts
     if (switcher._staggerTimeoutIds) {
         switcher._staggerTimeoutIds.forEach(id => GLib.Source.remove(id));
         switcher._staggerTimeoutIds = [];
     }
 
-    // Clear pending menu refresh timeout
     switcher._clearTimeout('_updateTimeoutId');
 
-    // Remove all hidden effects
-    const windows = global.display.list_all_windows();
-    windows.forEach(win => {
-        const actor = win.get_compositor_private();
-        if (actor) {
-            actor.remove_effect_by_name('hidden-desaturation');
-            actor.remove_effect_by_name('hidden-brightness');
-        }
-    });
+    if (
+        Main.wm._animateActorFilters_mrPixel &&
+        switcher._casAnimateActorFilter
+    ) {
+        Main.wm._animateActorFilters_mrPixel.delete(
+            switcher._casAnimateActorFilter
+        );
+        switcher._casAnimateActorFilter = null;
+    }
 
-    // Disconnect signals
+    if (
+        Main.wm._animateActorFilters_mrPixel?.size === 0 &&
+        Main.wm._origShouldAnimateActor_mrPixel
+    ) {
+        Main.wm._shouldAnimateActor = Main.wm._origShouldAnimateActor_mrPixel;
+        Main.wm._animateActorFilters_mrPixel = null;
+        Main.wm._origShouldAnimateActor_mrPixel = null;
+    }
+
+    global.display
+        .list_all_windows()
+        .forEach(window => removeAllEffects(window));
+
     if (switcher._hideHandlingSignals) {
-        switcher._hideHandlingSignals.forEach(({
-            obj,
-            id
-        }) => {
-            obj.disconnect(id);
-        });
+        switcher._hideHandlingSignals.forEach(({obj, id}) =>
+            obj.disconnect(id)
+        );
         switcher._hideHandlingSignals = [];
     }
 }
 
 /**
- * Initialize OPTIONAL minimized window effects (user toggleable)
- * Applies subtle visual effect to manually minimized windows
- * @param {ClassicAppSwitcher} switcher - The switcher instance
+ * Enables minimized window visual effects across all windows.
+ *
+ * @param {Object} switcher - The switcher instance.
  */
 export function enableMinimizedEffect(switcher) {
-    // Store signal IDs for cleanup
-    if (!switcher._minimizedEffectSignals) {
+    if (!switcher._minimizedEffectSignals)
         switcher._minimizedEffectSignals = [];
-    }
 
-    // Apply minimized effects to already-minimized windows
-    const windows = global.display.list_all_windows();
-    windows.forEach(win => {
-        if (win.window_type === Meta.WindowType.NORMAL && win.minimized) {
-            // Only apply if NOT a hidden window
-            if (!switcher._lastHiddenWindows?.some(hw => hw?.get_id() === win.get_id())) {
-                applyMinimizedEffect(win);
-            }
+    const hiddenIds = new Set(
+        switcher._lastHiddenWindows?.map(w => w.get_id()) || []
+    );
+    global.display.list_all_windows().forEach(window => {
+        if (
+            window.window_type === Meta.WindowType.NORMAL &&
+            window.minimized &&
+            !hiddenIds.has(window.get_id())
+        ) {
+            applyMinimizedEffect(window);
         }
     });
 
-    // Apply minimized effect on manual minimize
-    const minimizeId = global.window_manager.connect('minimize', (wm, actor) => {
-        const win = actor.get_meta_window();
-        if (win && !win._isHideOperation) {
-            // Manual minimize (not our hide) - apply subtle effect if enabled
-            if (switcher._settings.get_boolean('enable-overview-effects')) {
-                applyMinimizedEffect(win);
+    const minimizeId = global.window_manager.connect(
+        'minimize',
+        (wm, actor) => {
+            const window = actor.get_meta_window();
+            if (
+                window &&
+                !window._isHideOperation &&
+                switcher._settings.get_boolean('enable-overview-effects')
+            ) {
+                applyMinimizedEffect(window);
             }
         }
+    );
+
+    const unminimizeId = global.window_manager.connect(
+        'unminimize',
+        (wm, actor) => {
+            const window = actor.get_meta_window();
+            if (window) removeAllEffects(window);
+        }
+    );
+
+    switcher._minimizedEffectSignals.push({
+        obj: global.window_manager,
+        id: minimizeId,
     });
     switcher._minimizedEffectSignals.push({
         obj: global.window_manager,
-        id: minimizeId
-    });
-
-    // Remove minimized effects on unminimize
-    const unminimizeId = global.window_manager.connect('unminimize', (wm, actor) => {
-        const win = actor.get_meta_window();
-        if (win) {
-            const winActor = win.get_compositor_private();
-            if (winActor) {
-                winActor.remove_effect_by_name('minimized-desaturation');
-                winActor.remove_effect_by_name('minimized-brightness');
-            }
-        }
-    });
-    switcher._minimizedEffectSignals.push({
-        obj: global.window_manager,
-        id: unminimizeId
+        id: unminimizeId,
     });
 }
 
 /**
- * Disable optional minimized window effects
- * @param {ClassicAppSwitcher} switcher - The switcher instance
+ * Disables minimized window visual effects and disconnects their signals.
+ *
+ * @param {Object} switcher - The switcher instance.
  */
 export function disableMinimizedEffect(switcher) {
-    // Remove all minimized effects
-    const windows = global.display.list_all_windows();
-    windows.forEach(win => {
-        const actor = win.get_compositor_private();
-        if (actor) {
-            actor.remove_effect_by_name('minimized-desaturation');
-            actor.remove_effect_by_name('minimized-brightness');
-        }
-    });
-
-    // Disconnect signals
+    global.display
+        .list_all_windows()
+        .forEach(window => removeAllEffects(window));
     if (switcher._minimizedEffectSignals) {
-        switcher._minimizedEffectSignals.forEach(({
-            obj,
-            id
-        }) => {
-            obj.disconnect(id);
-        });
+        switcher._minimizedEffectSignals.forEach(({obj, id}) =>
+            obj.disconnect(id)
+        );
         switcher._minimizedEffectSignals = [];
     }
 }
 
 /**
- * Align window menu terminology with extension behavior
- * 
- * Updates labels for consistency with our Move/Send workspace operations:
- * - Our "Move to Workspace" submenu moves window and switches workspace
- * - Our "Send to Workspace" (Alt) moves window without switching
- * - GNOME's titlebar menu moves WITHOUT switching, so we label it "Send"
- * 
- * Also clarifies "Hide" as "Minimize" to match the actual window.minimize() call.
- * 
- * @param {ClassicAppSwitcher} switcher - The switcher instance
+ * Fixes window menu labels (e.g., changing 'Hide' to 'Minimize').
+ *
+ * @param {Object} switcher - The switcher instance.
  */
 export function fixWindowMenuLabels(switcher) {
     if (!switcher._originalBuildMenu) {
-        switcher._originalBuildMenu = WindowMenu.WindowMenu.prototype._buildMenu;
+        switcher._originalBuildMenu =
+            WindowMenu.WindowMenu.prototype._buildMenu;
+        WindowMenu.WindowMenu.prototype._buildMenu = function (window) {
+            switcher._originalBuildMenu.call(this, window);
+            this._getMenuItems().forEach(item => {
+                if (!item.label) return;
+                const text = item.label.text;
+                if (text === _('Hide')) item.label.text = _('Minimize');
+                else if (text === _('Move to Workspace Left'))
+                    item.label.text = _('Send to Workspace Left');
+                else if (text === _('Move to Workspace Right'))
+                    item.label.text = _('Send to Workspace Right');
+            });
+        };
     }
-
-    WindowMenu.WindowMenu.prototype._buildMenu = function(window) {
-        switcher._originalBuildMenu.call(this, window);
-
-        // Update terminology for consistency with our extension
-        this._getMenuItems().forEach(item => {
-            if (!item.label) return;
-
-            const text = item.label.text;
-
-            // Change "Hide" to "Minimize" (matches actual behavior)
-            if (text === _('Hide')) {
-                item.label.text = _('Minimize');
-            }
-            // Change "Move to Workspace" to "Send to Workspace"
-            // (GNOME's menu doesn't switch workspace, matches our Send behavior)
-            else if (text === _('Move to Workspace Left')) {
-                item.label.text = _('Send to Workspace Left');
-            } else if (text === _('Move to Workspace Right')) {
-                item.label.text = _('Send to Workspace Right');
-            }
-        });
-    };
 }
 
 /**
- * Restore GNOME default labelling
- * @param {ClassicAppSwitcher} switcher - The switcher instance
+ * Restores original window menu labels.
+ *
+ * @param {Object} switcher - The switcher instance.
  */
 export function restoreWindowMenuLabels(switcher) {
     if (switcher._originalBuildMenu) {
-        WindowMenu.WindowMenu.prototype._buildMenu = switcher._originalBuildMenu;
-        delete switcher._originalBuildMenu;
+        WindowMenu.WindowMenu.prototype._buildMenu =
+            switcher._originalBuildMenu;
+        switcher._originalBuildMenu = null;
     }
 }
 
 /**
- * Store original Overview functions for restoration
- */
-let _originalIsOverviewWindow = null;
-
-/**
- * Enable filtering of hidden windows from Activities Overview
- * Also monitors window focus to clear hidden state when windows are activated externally
- * 
- * @param {ClassicAppSwitcher} switcher - The switcher instance
+ * Enables hidden window filtering in the overview/switcher.
+ *
+ * @param {Object} switcher - The switcher instance.
  */
 export function enableHiddenWindowFiltering(switcher) {
-    // Store original function
-    if (!_originalIsOverviewWindow) {
-        _originalIsOverviewWindow = Workspace.prototype._isOverviewWindow;
-    }
+    const installFilter = () => {
+        if (!Workspace.prototype._sharedOverviewFilters_mrPixel) {
+            Workspace.prototype._sharedOverviewFilters_mrPixel = new Set();
+            Workspace.prototype._originalIsOverviewWindow_mrPixel =
+                Workspace.prototype._isOverviewWindow;
 
-    // Defer the override to avoid race conditions with Shell's workspace animation
-    // This ensures Shell finishes any ongoing rendering before we change filtering
-    GLib.idle_add(GLib.PRIORITY_LOW, () => {
-        // Override to filter out our hidden windows
-        Workspace.prototype._isOverviewWindow = function(win) {
-            const show = _originalIsOverviewWindow.call(this, win);
+            Workspace.prototype._sharedOverviewDispatcher_mrPixel = function (
+                win
+            ) {
+                const show =
+                    Workspace.prototype._originalIsOverviewWindow_mrPixel.call(
+                        this,
+                        win
+                    );
+                if (!show) return false;
+                for (const filter of this._sharedOverviewFilters_mrPixel) {
+                    if (!filter.call(this, win)) return false;
+                }
+                return true;
+            };
+            Workspace.prototype._isOverviewWindow =
+                Workspace.prototype._sharedOverviewDispatcher_mrPixel;
+        }
 
+        switcher._casOverviewFilter = function (win) {
             let metaWindow = win;
-            if (win.get_meta_window) {
-                metaWindow = win.get_meta_window();
-            }
-
-            // Check if this window is in our hidden list
-            if (switcher._lastHiddenWindows && switcher._lastHiddenWindows.length > 0) {
-                const isHidden = switcher._lastHiddenWindows.some(hiddenWin =>
-                    hiddenWin && metaWindow && hiddenWin.get_id() === metaWindow.get_id()
-                );
-
-                if (isHidden) {
-                    return false; // Don't show in Overview!
+            if (win.get_meta_window) metaWindow = win.get_meta_window();
+            if (switcher._lastHiddenWindows?.length > 0) {
+                const windowId = metaWindow?.get_id();
+                if (
+                    windowId &&
+                    switcher._lastHiddenWindows.some(
+                        w => w.get_id() === windowId
+                    )
+                ) {
+                    return false;
                 }
             }
-
-            return show;
+            return true;
         };
 
-        return GLib.SOURCE_REMOVE;
-    });
-
-    // Monitor window focus to clear hidden state when activated externally
-    // (e.g., clicking in Dash, App Grid, or Alt+Tab)
-    switcher._hiddenWindowFocusId = global.display.connect('notify::focus-window', () => {
-        const focusedWindow = global.display.focus_window;
-
-        // Defensive: Bail early if no focused window or no tracking
-        if (!focusedWindow || !switcher._lastHiddenWindows || switcher._lastHiddenWindows.length === 0) {
-            return;
-        }
-
-        // Get the app for this focused window
-        const focusedApp = Shell.WindowTracker.get_default().get_window_app(focusedWindow);
-
-        // Defensive: Bail if no app or destroyed workspace
-        if (!focusedApp) return;
-
-        const workspace = focusedWindow.get_workspace();
-        if (!workspace) return;
-
-        // Get ALL windows for this app on this workspace
-        const appWindows = focusedApp.get_windows().filter(w =>
-            w && w.get_workspace() === workspace
+        Workspace.prototype._sharedOverviewFilters_mrPixel.add(
+            switcher._casOverviewFilter
         );
+    };
 
-        // Defensive: Check each window before unminimizing
-        appWindows.forEach(win => {
-            if (!win) return;
+    if (!Workspace.prototype._sharedOverviewFilters_mrPixel) {
+        switcher._filterInstallIdleId = GLib.idle_add(GLib.PRIORITY_LOW, () => {
+            switcher._filterInstallIdleId = null;
+            installFilter();
+            return GLib.SOURCE_REMOVE;
+        });
+    } else {
+        installFilter();
+    }
 
-            const wasHidden = switcher._lastHiddenWindows.some(
-                hiddenWin => hiddenWin && hiddenWin.get_id() === win.get_id()
+    switcher._hiddenWindowFocusId = global.display.connect(
+        'notify::focus-window',
+        () => {
+            const focusedWindow = global.display.focus_window;
+            if (!focusedWindow || !switcher._lastHiddenWindows?.length) return;
+
+            const focusedApp =
+                Shell.WindowTracker.get_default().get_window_app(focusedWindow);
+            if (!focusedApp) return;
+
+            const workspace = focusedWindow.get_workspace();
+            if (!workspace) return;
+
+            const appWindows = focusedApp
+                .get_windows()
+                .filter(w => w && w.get_workspace() === workspace);
+            const appWindowIds = new Set(appWindows.map(w => w.get_id()));
+
+            appWindows.forEach(window => {
+                if (!window || !window.minimized) return;
+                if (
+                    switcher._lastHiddenWindows.some(
+                        w => w.get_id() === window.get_id()
+                    )
+                ) {
+                    window._isUnhideOperation = true;
+                    window.unminimize();
+                    GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+                        window._isUnhideOperation = null;
+                        return GLib.SOURCE_REMOVE;
+                    });
+                }
+            });
+
+            switcher._lastHiddenWindows = switcher._lastHiddenWindows.filter(
+                w => !appWindowIds.has(w.get_id())
             );
-
-            if (wasHidden && win.minimized) {
-                win.unminimize();
-            }
-        });
-
-        // Remove ALL windows of this app from hidden tracking
-        switcher._lastHiddenWindows = switcher._lastHiddenWindows.filter(hiddenWin => {
-            if (!hiddenWin) return false;
-            return !appWindows.some(appWin => appWin && appWin.get_id() === hiddenWin.get_id());
-        });
-
-        // If we've cleared all hidden windows, clear the app tracking too
-        if (switcher._lastHiddenWindows.length === 0) {
-            switcher._lastHiddenApp = null;
+            if (switcher._lastHiddenWindows.length === 0)
+                switcher._lastHiddenApp = null;
         }
-    });
+    );
 }
 
 /**
- * Disable hidden window filtering and restore original Overview behavior
- * @param {ClassicAppSwitcher} switcher - The switcher instance
+ * Disables hidden window filtering and cleans up filters/signals.
+ *
+ * @param {Object} switcher - The switcher instance.
  */
 export function disableHiddenWindowFiltering(switcher) {
-    // Defer the restore to avoid race conditions
-    GLib.idle_add(GLib.PRIORITY_LOW, () => {
-        if (_originalIsOverviewWindow) {
-            Workspace.prototype._isOverviewWindow = _originalIsOverviewWindow;
-            _originalIsOverviewWindow = null;
-        }
-        return GLib.SOURCE_REMOVE;
-    });
+    if (switcher._filterInstallIdleId) {
+        GLib.Source.remove(switcher._filterInstallIdleId);
+        switcher._filterInstallIdleId = null;
+    }
 
-    // Disconnect focus monitoring immediately
+    if (
+        Workspace.prototype._sharedOverviewFilters_mrPixel &&
+        switcher._casOverviewFilter
+    ) {
+        Workspace.prototype._sharedOverviewFilters_mrPixel.delete(
+            switcher._casOverviewFilter
+        );
+        switcher._casOverviewFilter = null;
+    }
+
+    if (
+        Workspace.prototype._sharedOverviewFilters_mrPixel?.size === 0 &&
+        Workspace.prototype._originalIsOverviewWindow_mrPixel
+    ) {
+        GLib.idle_add(GLib.PRIORITY_LOW, () => {
+            if (
+                Workspace.prototype._sharedOverviewFilters_mrPixel?.size ===
+                    0 &&
+                Workspace.prototype._originalIsOverviewWindow_mrPixel &&
+                Workspace.prototype._isOverviewWindow ===
+                    Workspace.prototype._sharedOverviewDispatcher_mrPixel
+            ) {
+                Workspace.prototype._isOverviewWindow =
+                    Workspace.prototype._originalIsOverviewWindow_mrPixel;
+                Workspace.prototype._sharedOverviewFilters_mrPixel = null;
+                Workspace.prototype._originalIsOverviewWindow_mrPixel = null;
+                Workspace.prototype._sharedOverviewDispatcher_mrPixel = null;
+            }
+            return GLib.SOURCE_REMOVE;
+        });
+    }
+
     if (switcher._hiddenWindowFocusId) {
         global.display.disconnect(switcher._hiddenWindowFocusId);
         switcher._hiddenWindowFocusId = null;
     }
 }
+
+/**
+ * Overrides DashIcon activation to apply CAS hide/restore logic.
+ *
+ * DashIcon (dash.js) extends AppDisplay.AppIcon without defining its own
+ * activate() — we add one directly to DashIcon.prototype, shadowing the
+ * parent only for Dash clicks and leaving the app grid untouched.
+ *
+ * Modifier shortcuts (Ctrl+click, middle-click) pass through unchanged.
+ * Apps with no windows on the current workspace (stopped, or on another
+ * workspace) fall back to native app.activate() so launching and
+ * workspace-switching both work correctly.
+ *
+ * @param {import('./indicator.js').ClassicAppSwitcher} switcher
+ * @returns {void}
+ */
+export function enableDashIconActivation(switcher) {
+    if (switcher._origDashIconActivate) return;
+
+    Dash.DashIcon.prototype.activate = function (button) {
+        const event = Clutter.get_current_event();
+        const modifiers = event ? event.get_state() : 0;
+        const isMiddleButton = button && button === Clutter.BUTTON_MIDDLE;
+        const isCtrlPressed =
+            (modifiers & Clutter.ModifierType.CONTROL_MASK) !== 0;
+        const openNewWindow =
+            this.app.can_open_new_window() &&
+            this.app.state === Shell.AppState.RUNNING &&
+            (isCtrlPressed || isMiddleButton);
+
+        if (this.app.state === Shell.AppState.STOPPED || openNewWindow)
+            this.animateLaunch();
+
+        if (openNewWindow) {
+            this.app.open_new_window(-1);
+        } else {
+            const workspace = global.workspace_manager.get_active_workspace();
+            const hasWindowsHere = this.app
+                .get_windows()
+                .some(w => w.get_workspace() === workspace);
+
+            if (hasWindowsHere) {
+                activateApplication(switcher, this.app, workspace);
+            } else {
+                // Stopped or all windows on another workspace — native activate
+                // handles launching and workspace-switching correctly
+                this.app.activate();
+            }
+        }
+
+        Main.overview.hide();
+    };
+
+    // Store our function as the installed sentinel
+    switcher._origDashIconActivate = Dash.DashIcon.prototype.activate;
+}
+
+/**
+ * Removes the DashIcon activation override, restoring prototype chain
+ * lookup to AppDisplay.AppIcon.prototype.activate.
+ *
+ * @param {import('./indicator.js').ClassicAppSwitcher} switcher
+ * @returns {void}
+ */
+export function disableDashIconActivation(switcher) {
+    if (switcher._origDashIconActivate) {
+        delete Dash.DashIcon.prototype.activate;
+        switcher._origDashIconActivate = null;
+    }
+}
+

@@ -1,28 +1,42 @@
 'use strict';
 
+/**
+ * @fileoverview Accessibility Page for Classic App Switcher preferences.
+ *
+ * Provides options for keyboard shortcuts, visual aids, and overview customization.
+ *
+ * @module accessibilityPage
+ */
+
 import Adw from 'gi://Adw';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Gtk from 'gi://Gtk';
 import GObject from 'gi://GObject';
 
-import {
-    gettext as _
-} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
+import {gettext as _} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
-import {
-    KeyboardShortcutsDialog
-} from './shortcutReferencePage.js';
+import {KeyboardShortcutsDialog} from './shortcutReferencePage.js';
 
 /**
- * Accessibility Settings Page
- * Keyboard shortcuts and visual aids for improved usability
+ * Preferences page displaying Keyboard shortcuts and visual aids for improved usability
+ *
+ * @class
+ * @extends Adw.PreferencesPage
  */
 export class AccessibilityPage extends Adw.PreferencesPage {
     static {
-        GObject.registerClass(this);
+        GObject.registerClass(
+            {
+                GTypeName: 'ClassicAppSwitcherAccessibilityPage',
+            },
+            this
+        );
     }
 
+    /**
+     * @param {Gio.Settings} settings - Extension GSettings instance
+     */
     constructor(settings) {
         super({
             title: _('Accessibility'),
@@ -30,7 +44,17 @@ export class AccessibilityPage extends Adw.PreferencesPage {
             name: 'AccessibilityPage',
         });
 
+        /** @private @type {Gio.Settings} */
         this._settings = settings;
+
+        /** @private @type {Adw.Window|null} */
+        this._shortcutsWindow = null;
+
+        // Check libadwaita version for compatibility
+        const adwVersion =
+            Adw.get_major_version() * 100 + Adw.get_minor_version();
+        /** @private @type {boolean} */
+        this._useDimmedClass = adwVersion >= 107; // GNOME 48+
 
         this._buildKeyboardGroup();
         this._buildShortcutsGroup();
@@ -38,16 +62,26 @@ export class AccessibilityPage extends Adw.PreferencesPage {
         this._buildWarningGroup();
     }
 
+    /**
+     * Build the keyboard shortcuts toggle and hints preferences group
+     *
+     * @private
+     * @returns {void}
+     */
     _buildKeyboardGroup() {
         const keyboardGroup = new Adw.PreferencesGroup({
             title: _('Keyboard Shortcuts'),
-            description: _('Optional keyboard shortcuts for application and window management'),
+            description: _(
+                'Optional keyboard shortcuts for application and window management'
+            ),
         });
 
         // Enable Keyboard Shortcuts Row
         const enableShortcutsRow = new Adw.ActionRow({
             title: _('Enable Keyboard Shortcuts'),
-            subtitle: _('Activate custom shortcuts for enhanced window management'),
+            subtitle: _(
+                'Activate custom shortcuts for enhanced window management'
+            ),
         });
 
         // Create info button
@@ -55,8 +89,8 @@ export class AccessibilityPage extends Adw.PreferencesPage {
             icon_name: 'info-outline-symbolic',
             tooltip_text: _('More Information'),
             valign: Gtk.Align.CENTER,
-            has_frame: false,
         });
+        infoButton.add_css_class('flat');
 
         // Create popover content
         const popoverBox = new Gtk.Box({
@@ -67,7 +101,9 @@ export class AccessibilityPage extends Adw.PreferencesPage {
         });
 
         const popoverLabel = new Gtk.Label({
-            label: _('🪤 Super+H and Super+M will be temporarily remapped while this option is enabled. To access the notification list please use Super+V which is the official shortcut shown in GNOME Settings. 🐁'),
+            label: _(
+                '🪤 Super+H and Super+M will be temporarily remapped while this option is enabled. To access the notification list please use Super+V which is the official shortcut shown in GNOME Settings. 🐁'
+            ),
             wrap: true,
             max_width_chars: 40,
             xalign: 0,
@@ -89,7 +125,7 @@ export class AccessibilityPage extends Adw.PreferencesPage {
         let isInitialSetup = true;
 
         // Connect to switch changes to show toast
-        enableShortcutsSwitch.connect('notify::active', (widget) => {
+        enableShortcutsSwitch.connect('notify::active', widget => {
             if (isInitialSetup) return;
 
             // The preferences window itself
@@ -97,9 +133,9 @@ export class AccessibilityPage extends Adw.PreferencesPage {
 
             if (prefsWindow && prefsWindow.add_toast) {
                 const isEnabled = widget.get_active();
-                const toastMessage = isEnabled ?
-                    _('Keyboard shortcuts enabled') :
-                    _('Keyboard shortcuts disabled');
+                const toastMessage = isEnabled
+                    ? _('Keyboard shortcuts enabled')
+                    : _('Keyboard shortcuts disabled');
                 const toast = new Adw.Toast({
                     title: toastMessage,
                     timeout: 2,
@@ -152,6 +188,12 @@ export class AccessibilityPage extends Adw.PreferencesPage {
         this.add(keyboardGroup);
     }
 
+    /**
+     * Build group containing shortcut reference dialog trigger
+     *
+     * @private
+     * @returns {void}
+     */
     _buildShortcutsGroup() {
         const shortcutsGroup = new Adw.PreferencesGroup();
 
@@ -160,14 +202,18 @@ export class AccessibilityPage extends Adw.PreferencesPage {
             subtitle: _('View available shortcuts'),
             activatable: true,
         });
-        referenceRow.add_suffix(new Gtk.Image({
-            icon_name: 'go-next-symbolic',
-            valign: Gtk.Align.CENTER,
-        }));
-        referenceRow.add_prefix(new Gtk.Image({
-            icon_name: 'keyboard-shortcuts-symbolic',
-            valign: Gtk.Align.CENTER,
-        }));
+        referenceRow.add_suffix(
+            new Gtk.Image({
+                icon_name: 'go-next-symbolic',
+                valign: Gtk.Align.CENTER,
+            })
+        );
+        referenceRow.add_prefix(
+            new Gtk.Image({
+                icon_name: 'keyboard-shortcuts-symbolic',
+                valign: Gtk.Align.CENTER,
+            })
+        );
         referenceRow.connect('activated', () => {
             this._showShortcutsDialog();
         });
@@ -176,6 +222,12 @@ export class AccessibilityPage extends Adw.PreferencesPage {
         this.add(shortcutsGroup);
     }
 
+    /**
+     * Display the modal window with keybinding shortcuts dialog
+     *
+     * @private
+     * @returns {void}
+     */
     _showShortcutsDialog() {
         // If a window already exists, destroy it first
         if (this._shortcutsWindow) {
@@ -215,6 +267,12 @@ export class AccessibilityPage extends Adw.PreferencesPage {
         window.present();
     }
 
+    /**
+     * Build visual aids preferences group (effects, overview visibility, Dash it! compatibility)
+     *
+     * @private
+     * @returns {void}
+     */
     _buildVisualAidsGroup() {
         const visualAidsGroup = new Adw.PreferencesGroup({
             title: _('Visual Aids'),
@@ -224,32 +282,70 @@ export class AccessibilityPage extends Adw.PreferencesPage {
         // Enable Overview Effects
         const effectsRow = new Adw.SwitchRow({
             title: _('Enable Overview Effects'),
-            subtitle: _('Apply visual effects to windows in overview for improved distinction'),
+            subtitle: _(
+                'Apply visual effects to windows in overview for improved distinction'
+            ),
         });
-        this._settings.bind(
-            'enable-overview-effects',
-            effectsRow,
-            'active',
-            Gio.SettingsBindFlags.DEFAULT
-        );
         visualAidsGroup.add(effectsRow);
 
         // Hide windows from overview
         const hideFromOverviewRow = new Adw.SwitchRow({
             title: _('Hide Applications in Overview'),
-            subtitle: _('Hidden apps will not appear in activities overview, reducing visual noise'),
+            subtitle: _(
+                'Hidden apps will not appear in activities overview, reducing visual noise'
+            ),
         });
-        this._settings.bind(
-            'hide-windows-from-overview',
-            hideFromOverviewRow,
-            'active',
-            Gio.SettingsBindFlags.DEFAULT
-        );
         visualAidsGroup.add(hideFromOverviewRow);
+
+        // --- DASH IT! COMPATIBILITY CHECK (UI ONLY) ---
+        const shellSettings = new Gio.Settings({schema_id: 'org.gnome.shell'});
+        const enabledExtensions = shellSettings.get_strv('enabled-extensions');
+        const dashItUuid = 'dash-it@mr-pixel-dev';
+
+        if (enabledExtensions.includes(dashItUuid)) {
+            // Dash It! active: set UI state directly without GSettings bindings
+            effectsRow.set_active(false);
+            effectsRow.set_sensitive(false);
+
+            hideFromOverviewRow.set_active(true);
+            hideFromOverviewRow.set_sensitive(false);
+
+            const statusIcon = new Gtk.Image({
+                icon_name: 'changes-prevent-symbolic',
+                valign: Gtk.Align.CENTER,
+            });
+            statusIcon.add_css_class(
+                this._useDimmedClass ? 'dimmed' : 'dim-label'
+            );
+
+            statusIcon.set_tooltip_text(_('Automatic'));
+
+            visualAidsGroup.header_suffix = statusIcon;
+        } else {
+            // Standard mode: bind switches to GSettings schema
+            this._settings.bind(
+                'enable-overview-effects',
+                effectsRow,
+                'active',
+                Gio.SettingsBindFlags.DEFAULT
+            );
+            this._settings.bind(
+                'hide-windows-from-overview',
+                hideFromOverviewRow,
+                'active',
+                Gio.SettingsBindFlags.DEFAULT
+            );
+        }
 
         this.add(visualAidsGroup);
     }
 
+    /**
+     * Build footer warning message box regarding GNOME default keybinding overrides
+     *
+     * @private
+     * @returns {void}
+     */
     _buildWarningGroup() {
         const warningGroup = new Adw.PreferencesGroup();
 
@@ -261,6 +357,7 @@ export class AccessibilityPage extends Adw.PreferencesPage {
             margin_start: 12,
             margin_end: 12,
         });
+        warningBox.add_css_class('caption');
 
         const warningIcon = new Gtk.Image({
             icon_name: 'dialog-warning-symbolic',
@@ -268,21 +365,22 @@ export class AccessibilityPage extends Adw.PreferencesPage {
         });
 
         const warningLabel = new Gtk.Label({
-            label: _('Activating this option will override GNOME default system shortcuts'),
-            tooltip_markup: _('All shortcuts will be restored to their defaults when this option is deactivated and if this extension is disabled or removed'),
+            label: _(
+                'Activating this option will override GNOME default system shortcuts'
+            ),
+            tooltip_markup: _(
+                'All shortcuts will be restored to their defaults when this option is deactivated and if this extension is disabled or removed'
+            ),
             wrap: true,
             xalign: 0,
             hexpand: true,
             use_markup: true,
         });
-
-        // Check libadwaita version for compatibility
-        const adwVersion = Adw.get_major_version() * 100 + Adw.get_minor_version();
-        const useDimmedClass = adwVersion >= 107; // GNOME 48+
+        warningLabel.add_css_class(
+            this._useDimmedClass ? 'dimmed' : 'dim-label'
+        );
 
         warningGroup.add_css_class('card');
-        warningLabel.add_css_class('caption');
-        warningLabel.add_css_class(useDimmedClass ? 'dimmed' : 'dim-label');
 
         warningBox.append(warningIcon);
         warningBox.append(warningLabel);
@@ -290,3 +388,4 @@ export class AccessibilityPage extends Adw.PreferencesPage {
         this.add(warningGroup);
     }
 }
+

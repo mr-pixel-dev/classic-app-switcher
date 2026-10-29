@@ -37,6 +37,11 @@
       <summary>Show keyboard hints in menu</summary>
       <description>Displays keyboard shortcut hints next to menu items when shortcuts are enabled</description>
     </key>
+    <key name="toggle-switcher" type="as">
+      <default><![CDATA[['<Super>f']]]></default>
+      <summary>Toggle the Switcher</summary>
+      <description>Keyboard shortcut to show or hide the Switcher</description>
+    </key> 
     <key name="hide-current-app" type="as">
       <default><![CDATA[['<Super>h']]]></default>
       <summary>Hide the current application</summary>

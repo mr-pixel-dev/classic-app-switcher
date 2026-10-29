@@ -1,14 +1,20 @@
 'use strict';
 
+/**
+ * @fileoverview Switcher Menu - Left-click menu for app switching and management.
+ *
+ * All functions receive the switcher instance as first parameter.
+ *
+ * @module switcherMenu
+ */
+
 import Clutter from 'gi://Clutter';
 import Meta from 'gi://Meta';
 import Pango from 'gi://Pango';
 import Shell from 'gi://Shell';
 import St from 'gi://St';
 
-import {
-    gettext as _
-} from 'resource:///org/gnome/shell/extensions/extension.js';
+import {gettext as _} from 'resource:///org/gnome/shell/extensions/extension.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
@@ -16,13 +22,10 @@ import * as EventHandlers from './eventHandlers.js';
 import * as WindowManager from './windowManager.js';
 
 /**
- * Switcher Menu - Left-click menu for app switching and management
- * All functions receive the switcher instance as first parameter
- */
-
-/**
  * Create the Switcher Menu structure (ONCE on extension enable)
- * @param {ClassicAppSwitcher} switcher - The switcher instance
+ *
+ * @param {import('./indicator.js').ClassicAppSwitcher} switcher - The switcher instance
+ * @returns {void}
  */
 export function createSwitcherMenu(switcher) {
     // Set as primary menu
@@ -35,20 +38,23 @@ export function createSwitcherMenu(switcher) {
     switcher._switcherMenu = new PopupMenu.PopupMenu(
         switcher._switcherSourceActor,
         0.5,
-        St.Side.TOP,
+        St.Side.TOP
     );
     switcher._switcherMenu.actor.hide();
 
     // Add CSS Classes
-    switcher._switcherMenu.actor.add_style_class_name('panel-menu classic-app-switcher-menu');
+    switcher._switcherMenu.actor.add_style_class_name(
+        'panel-menu classic-app-switcher-menu'
+    );
 
     // Add to UI Group and Menu Manager for proper management
     Main.uiGroup.add_child(switcher._switcherMenu.actor);
     Main.panel.menuManager.addMenu(switcher._switcherMenu);
 
     // Ensure focus manager tracks keyboard navigation
-    switcher._switcherMenu.actor.connect('key-press-event',
-        (actor, event) => EventHandlers.onMenuKeyPress(switcher, actor, event));
+    switcher._switcherMenu.actor.connect('key-press-event', (actor, event) =>
+        EventHandlers.onMenuKeyPress(switcher, actor, event)
+    );
 
     // Create switcher actions section
     switcher._switcherActionsSection = new PopupMenu.PopupMenuSection();
@@ -66,39 +72,58 @@ export function createSwitcherMenu(switcher) {
     switcher._switcherMenu.addMenuItem(switcher._appWorkspaceSection, 3);
 
     // Create workspace switcher submenu
-    switcher._switcherSubmenu = new PopupMenu.PopupSubMenuMenuItem(_('Move to Workspace'));
+    switcher._switcherSubmenu = new PopupMenu.PopupSubMenuMenuItem(
+        _('Move to Workspace')
+    );
     switcher._appWorkspaceSection.addMenuItem(switcher._switcherSubmenu);
 
     // Manage panel button state and menu height
     switcher._switcherMenu.connectObject(
-        'open-state-changed', (menu, open) => {
+        'open-state-changed',
+        (menu, open) => {
             if (open) {
                 switcher.add_style_pseudo_class('active');
 
                 // Calculate menu max-height dynamically
-                const workArea = Main.layoutManager.getWorkAreaForMonitor(Main.layoutManager.primaryIndex);
-                const scaleFactor = St.ThemeContext.get_for_stage(global.stage).scale_factor;
-                const verticalMargins = switcher._switcherMenu.actor.margin_top + switcher._switcherMenu.actor.margin_bottom;
-                const maxHeight = Math.round((workArea.height - verticalMargins) / scaleFactor);
-                switcher._switcherMenu.actor.set_style(`max-height: ${maxHeight}px;`);
+                /** @type {Meta.Rectangle} */
+                const workArea = Main.layoutManager.getWorkAreaForMonitor(
+                    Main.layoutManager.primaryIndex
+                );
+                const scaleFactor = St.ThemeContext.get_for_stage(
+                    global.stage
+                ).scale_factor;
+                const verticalMargins =
+                    switcher._switcherMenu.actor.margin_top +
+                    switcher._switcherMenu.actor.margin_bottom;
+                const maxHeight = Math.round(
+                    (workArea.height - verticalMargins) / scaleFactor
+                );
+                switcher._switcherMenu.actor.set_style(
+                    `max-height: ${maxHeight}px;`
+                );
             } else {
                 switcher.remove_style_pseudo_class('active');
             }
-        }, switcher);
-
+        },
+        switcher
+    );
 }
 
 /**
  * Build the switcher actions section (Hide, Hide Others, Show All, Quit)
  * Called when keyboard shortcuts or hints toggle changes
- * @param {ClassicAppSwitcher} switcher - The switcher instance
+ *
+ * @param {import('./indicator.js').ClassicAppSwitcher} switcher - The switcher instance
+ * @returns {void}
  */
 export function buildSwitcherActions(switcher) {
     // Clear existing action items
     switcher._switcherActionsSection.removeAll();
 
     // Hide Application
-    switcher._hideCurrentItem = new PopupMenu.PopupMenuItem(_('Hide Application'));
+    switcher._hideCurrentItem = new PopupMenu.PopupMenuItem(
+        _('Hide Application')
+    );
     switcher._hideCurrentItem.connect('activate', () => {
         WindowManager.hideCurrentApp(switcher);
     });
@@ -125,9 +150,11 @@ export function buildSwitcherActions(switcher) {
     switcher._switcherActionsSection.addMenuItem(switcher._topSeparator);
 
     // Quit Application
-    switcher._quitCurrentItem = new PopupMenu.PopupMenuItem(_('Quit Application'));
+    switcher._quitCurrentItem = new PopupMenu.PopupMenuItem(
+        _('Quit Application')
+    );
     switcher._quitCurrentItem.connect('activate', () => {
-        WindowManager.quitCurrentApp(switcher);
+        WindowManager.quitCurrentApp();
     });
     switcher._switcherActionsSection.addMenuItem(switcher._quitCurrentItem);
     addKeyboardHint(switcher, switcher._quitCurrentItem, 'Super+Q');
@@ -135,17 +162,26 @@ export function buildSwitcherActions(switcher) {
 
 /**
  * Update ALL switcher menu items visibility (Hide, Hide Others, Show All, Quit)
- * @param {ClassicAppSwitcher} switcher - The switcher instance
+ *
+ * @param {import('./indicator.js').ClassicAppSwitcher} switcher - The switcher instance
+ * @returns {void}
  */
 export function updateConditionalMenuItems(switcher) {
     // Guard: Don't update if menu items are destroyed
-    if (!switcher._hideOthersItem || !switcher._showAllItem ||
-        !switcher._hideCurrentItem || !switcher._quitCurrentItem) {
+    if (
+        !switcher._hideOthersItem ||
+        !switcher._showAllItem ||
+        !switcher._hideCurrentItem ||
+        !switcher._quitCurrentItem
+    ) {
         return;
     }
 
+    /** @type {Meta.Workspace} */
     const workspace = global.workspace_manager.get_active_workspace();
+    /** @type {Meta.Window[]} */
     const windows = global.display.get_tab_list(Meta.TabList.NORMAL, workspace);
+    /** @type {Shell.App|null} */
     const focusedApp = Shell.WindowTracker.get_default().focus_app;
 
     // Check if there are OTHER APPS (not current) with visible windows
@@ -158,7 +194,8 @@ export function updateConditionalMenuItems(switcher) {
     const hasMinimizedWindows = windows.some(win => win.minimized);
 
     // Check if ALL windows are minimized
-    const allWindowsMinimized = windows.length > 0 && windows.every(win => win.minimized);
+    const allWindowsMinimized =
+        windows.length > 0 && windows.every(win => win.minimized);
 
     // Check if NO windows are open at all
     const noWindowsOpen = windows.length === 0;
@@ -186,27 +223,33 @@ export function updateConditionalMenuItems(switcher) {
 /**
  * Add keyboard shortcut hint to a menu item
  * Only adds hint if keyboard shortcuts are enabled and hints are visible in settings
- * @param {ClassicAppSwitcher} switcher - The switcher instance
+ *
+ * @param {import('./indicator.js').ClassicAppSwitcher} switcher - The switcher instance
  * @param {PopupMenu.PopupMenuItem} item - The menu item to add hint to
  * @param {string} shortcut - The keyboard shortcut text (e.g., 'Super+H')
+ * @returns {void}
  */
 export function addKeyboardHint(switcher, item, shortcut) {
     // Only add if shortcuts are enabled and hints are visible
-    if (!switcher._settings.get_boolean('enable-keyboard-shortcuts') ||
-        !switcher._settings.get_boolean('show-menu-hints')) {
+    if (
+        !switcher._settings.get_boolean('enable-keyboard-shortcuts') ||
+        !switcher._settings.get_boolean('show-menu-hints')
+    ) {
         return;
     }
 
     // Add spacer to push hint to the right
+    /** @type {St.Widget} */
     const spacer = new St.Widget({
-        x_expand: true
+        x_expand: true,
     });
     item.label.get_parent().add_child(spacer);
 
     // Create hint label with reduced opacity for subtle appearance
+    /** @type {St.Label} */
     const hintLabel = new St.Label({
         text: shortcut,
-        y_align: Clutter.ActorAlign.CENTER
+        y_align: Clutter.ActorAlign.CENTER,
     });
     hintLabel.set_opacity(153);
     item.label.get_parent().add_child(hintLabel);
@@ -214,7 +257,9 @@ export function addKeyboardHint(switcher, item, shortcut) {
 
 /**
  * Build the app-list scrollview widget
- * @param {ClassicAppSwitcher} switcher - The switcher instance
+ *
+ * @param {import('./indicator.js').ClassicAppSwitcher} switcher - The switcher instance
+ * @returns {void}
  */
 export function buildApplicationList(switcher) {
     // Cleanup old section if exists
@@ -223,8 +268,11 @@ export function buildApplicationList(switcher) {
         switcher._appListSection = null;
     }
 
+    /** @type {Meta.Workspace} */
     const workspace = global.workspace_manager.get_active_workspace();
+    /** @type {Set<Shell.App>} */
     const apps = new Set();
+    /** @type {Meta.Window[]} */
     const windows = global.display.get_tab_list(Meta.TabList.NORMAL, workspace);
 
     // Collect apps
@@ -238,7 +286,9 @@ export function buildApplicationList(switcher) {
         apps.add(app);
     }
 
+    /** @type {Shell.App[]} */
     const sorted = Array.from(apps);
+    /** @type {Shell.App|null} */
     const focusedApp = Shell.WindowTracker.get_default().focus_app;
 
     // Don't build widget if no apps
@@ -247,38 +297,47 @@ export function buildApplicationList(switcher) {
     }
 
     // Create a section that will hold the header + scrollable items
+    /** @type {PopupMenu.PopupMenuSection} */
     const appListContentSection = new PopupMenu.PopupMenuSection();
 
     // Add separator header
-    const appListHeader = new PopupMenu.PopupSeparatorMenuItem(_('Open Applications'));
+    const appListHeader = new PopupMenu.PopupSeparatorMenuItem(
+        _('Open Applications')
+    );
     appListContentSection.addMenuItem(appListHeader);
 
     // Build app items and add to section
     for (const app of sorted) {
+        /** @type {Meta.Window[]} */
         const appWindows = app.get_windows().filter(w => {
-            return w.get_workspace() === workspace &&
+            return (
+                w.get_workspace() === workspace &&
                 w.get_window_type() === Meta.WindowType.NORMAL &&
-                w.get_transient_for() === null;
+                w.get_transient_for() === null
+            );
         });
 
         const windowCount = appWindows.length;
         const visibleCount = appWindows.filter(w => !w.minimized).length;
         const displayText = app.get_name();
 
-        const item = new PopupMenu.PopupImageMenuItem(displayText, app.get_icon());
+        const item = new PopupMenu.PopupImageMenuItem(
+            displayText,
+            app.get_icon()
+        );
         item.label.clutter_text.ellipsize = Pango.EllipsizeMode.END;
 
         // Add window count if multiple windows
         if (windowCount > 1) {
             const spacer = new St.Widget({
-                x_expand: true
+                x_expand: true,
             });
             item.label.get_parent().add_child(spacer);
 
             const countLabel = new St.Label({
                 text: `${visibleCount}/${windowCount}`,
                 style_class: 'window-count',
-                y_align: Clutter.ActorAlign.CENTER
+                y_align: Clutter.ActorAlign.CENTER,
             });
             item.label.get_parent().add_child(countLabel);
         }
@@ -289,21 +348,23 @@ export function buildApplicationList(switcher) {
         });
 
         // Style based on state
-        const allMinimized = appWindows.length > 0 && appWindows.every(w => w.minimized);
+        const allHidden =
+            appWindows.length > 0 && appWindows.every(w => w._isHidden);
 
         if (app === focusedApp) {
             item.label.style = 'font-weight: 600;';
             item.setOrnament(PopupMenu.Ornament.CHECK);
-        } else if (allMinimized) {
+        } else if (allHidden) {
             item.label.set_opacity(128);
 
             if (item._icon) {
                 const desaturate = new Clutter.DesaturateEffect();
-                desaturate.set_factor(0.50);
+                desaturate.set_factor(0.5);
 
-                const brightnessContrast = new Clutter.BrightnessContrastEffect();
-                brightnessContrast.set_brightness(-0.10);
-                brightnessContrast.set_contrast(-0.10);
+                const brightnessContrast =
+                    new Clutter.BrightnessContrastEffect();
+                brightnessContrast.set_brightness(-0.1);
+                brightnessContrast.set_contrast(-0.1);
 
                 item._icon.add_effect(desaturate);
                 item._icon.add_effect(brightnessContrast);
@@ -311,7 +372,7 @@ export function buildApplicationList(switcher) {
             }
 
             item.setOrnament(PopupMenu.Ornament.NONE);
-            item.add_style_class_name('all-minimized');
+            item.add_style_class_name('all-hidden');
         } else {
             item.sensitive = true;
             item.setOrnament(PopupMenu.Ornament.NONE);
@@ -322,12 +383,13 @@ export function buildApplicationList(switcher) {
     }
 
     // Create ScrollView and wrap the section's actor
+    /** @type {St.ScrollView} */
     switcher._appListScrollView = new St.ScrollView({
         style_class: 'app-list-scrollview',
         hscrollbar_policy: St.PolicyType.NEVER,
         vscrollbar_policy: St.PolicyType.EXTERNAL,
         x_expand: true,
-        y_expand: true
+        y_expand: true,
     });
 
     // Add the section's actor to ScrollView
@@ -343,13 +405,16 @@ export function buildApplicationList(switcher) {
 
 /**
  * Update workspace submenu in switcher menu (moves ALL app windows)
- * @param {ClassicAppSwitcher} switcher - The switcher instance
+ *
+ * @param {import('./indicator.js').ClassicAppSwitcher} switcher - The switcher instance
+ * @returns {void}
  */
 export function updateSwitcherSubmenu(switcher) {
     if (!switcher._switcherSubmenu) return;
 
     const workspaceManager = global.workspace_manager;
     const nWorkspaces = workspaceManager.n_workspaces;
+    /** @type {Meta.Workspace} */
     const currentWorkspace = workspaceManager.get_active_workspace();
 
     // Hide if only one workspace
@@ -370,34 +435,54 @@ export function updateSwitcherSubmenu(switcher) {
 
     // Disconnect old handlers if they exist
     if (switcher._switcherSubmenu._keyPressId) {
-        switcher._switcherMenu.actor.disconnect(switcher._switcherSubmenu._keyPressId);
+        switcher._switcherMenu.actor.disconnect(
+            switcher._switcherSubmenu._keyPressId
+        );
     }
     if (switcher._switcherSubmenu._keyReleaseId) {
-        switcher._switcherMenu.actor.disconnect(switcher._switcherSubmenu._keyReleaseId);
+        switcher._switcherMenu.actor.disconnect(
+            switcher._switcherSubmenu._keyReleaseId
+        );
     }
 
     // Monitor key press/release events on the menu actor
-    switcher._switcherSubmenu._keyPressId = switcher._switcherMenu.actor.connect('key-press-event', (actor, event) => {
-        const keyval = event.get_key_symbol();
-        if (keyval === Clutter.KEY_Alt_L || keyval === Clutter.KEY_Alt_R) {
-            switcher._switcherSubmenu.label.text = switcher._switcherSubmenu._sendText;
-        }
-        return Clutter.EVENT_PROPAGATE;
-    });
+    switcher._switcherSubmenu._keyPressId =
+        switcher._switcherMenu.actor.connect(
+            'key-press-event',
+            (actor, event) => {
+                const keyval = event.get_key_symbol();
+                if (
+                    keyval === Clutter.KEY_Alt_L ||
+                    keyval === Clutter.KEY_Alt_R
+                ) {
+                    switcher._switcherSubmenu.label.text =
+                        switcher._switcherSubmenu._sendText;
+                }
+                return Clutter.EVENT_PROPAGATE;
+            }
+        );
 
-    switcher._switcherSubmenu._keyReleaseId = switcher._switcherMenu.actor.connect('key-release-event', (actor, event) => {
-        const keyval = event.get_key_symbol();
-        if (keyval === Clutter.KEY_Alt_L || keyval === Clutter.KEY_Alt_R) {
-            switcher._switcherSubmenu.label.text = switcher._switcherSubmenu._moveText;
-        }
-        return Clutter.EVENT_PROPAGATE;
-    });
+    switcher._switcherSubmenu._keyReleaseId =
+        switcher._switcherMenu.actor.connect(
+            'key-release-event',
+            (actor, event) => {
+                const keyval = event.get_key_symbol();
+                if (
+                    keyval === Clutter.KEY_Alt_L ||
+                    keyval === Clutter.KEY_Alt_R
+                ) {
+                    switcher._switcherSubmenu.label.text =
+                        switcher._switcherSubmenu._moveText;
+                }
+                return Clutter.EVENT_PROPAGATE;
+            }
+        );
 
     // Add workspace items
     for (let i = 0; i < nWorkspaces; i++) {
         const workspace = workspaceManager.get_workspace_by_index(i);
         const item = new PopupMenu.PopupMenuItem(
-            _('Workspace %d').format(i + 1),
+            _('Workspace %d').format(i + 1)
         );
 
         // Set ornament
@@ -407,10 +492,30 @@ export function updateSwitcherSubmenu(switcher) {
             item.setOrnament(PopupMenu.Ornament.DOT);
         }
 
+        // Intercept Alt+Enter/Space before PopupBaseMenuItem.vfunc_key_press_event
+        // calls navigate_from_event, which consumes the event before activation.
+        // Manually call activate() with the original event so the activate handler
+        // correctly sees the Alt modifier via event.get_state().
+        item.connect('key-press-event', (_actor, event) => {
+            const state = event.get_state();
+            const symbol = event.get_key_symbol();
+            if (
+                (state & Clutter.ModifierType.MOD1_MASK) !== 0 &&
+                (symbol === Clutter.KEY_Return ||
+                    symbol === Clutter.KEY_KP_Enter ||
+                    symbol === Clutter.KEY_space)
+            ) {
+                item.activate(event);
+                return Clutter.EVENT_STOP;
+            }
+            return Clutter.EVENT_PROPAGATE;
+        });
+
         // Handle activation
-        item.connect('activate', () => {
-            const [, , modifiers] = global.get_pointer();
-            const altPressed = (modifiers & Clutter.ModifierType.MOD1_MASK) !== 0;
+        item.connect('activate', (_item, event) => {
+            const modifiers = event.get_state();
+            const altPressed =
+                (modifiers & Clutter.ModifierType.MOD1_MASK) !== 0;
 
             if (altPressed) {
                 // SEND mode - move with notification but don't switch workspace
@@ -418,11 +523,15 @@ export function updateSwitcherSubmenu(switcher) {
 
                 // Get app name for notification
                 const focusedApp = Shell.WindowTracker.get_default().focus_app;
-                const appName = focusedApp ? focusedApp.get_name() : _('Application');
+                const appName = focusedApp
+                    ? focusedApp.get_name()
+                    : _('Application');
 
-                Main.notify(_('Application Moved'),
+                Main.notify(
+                    _('Application Moved'),
                     // Translators: %s is application name, %d is workspace number
-                    _('%s Sent to Workspace %d').format(appName, i + 1));
+                    _('%s Sent to Workspace %d').format(appName, i + 1)
+                );
             } else {
                 // MOVE mode - move and switch workspace (default)
                 moveAppToWorkspace(switcher, i, true);
@@ -435,19 +544,29 @@ export function updateSwitcherSubmenu(switcher) {
 
 /**
  * Move all windows of the current app to a workspace
- * @param {ClassicAppSwitcher} switcher - The switcher instance
- * @param {number} workspaceIndex - The workspace index
- * @param {boolean} switchWorkspace - Whether to switch to the target workspace (default: true)
+ *
+ * @param {import('./indicator.js').ClassicAppSwitcher} switcher - The switcher instance
+ * @param {number} workspaceIndex - The workspace index (0-indexed)
+ * @param {boolean} [switchWorkspace=true] - Whether to switch to the target workspace
+ * @returns {void}
  */
-export function moveAppToWorkspace(switcher, workspaceIndex, switchWorkspace = true) {
+export function moveAppToWorkspace(
+    switcher,
+    workspaceIndex,
+    switchWorkspace = true
+) {
+    /** @type {Shell.App|null} */
     const focusedApp = Shell.WindowTracker.get_default().focus_app;
     if (!focusedApp) return;
 
     const workspaceManager = global.workspace_manager;
-    const targetWorkspace = workspaceManager.get_workspace_by_index(workspaceIndex);
+    /** @type {Meta.Workspace|null} */
+    const targetWorkspace =
+        workspaceManager.get_workspace_by_index(workspaceIndex);
     if (!targetWorkspace) return;
 
     // Move all windows of this app to target workspace
+    /** @type {Meta.Window[]} */
     const windows = focusedApp.get_windows();
     windows.forEach(win => {
         if (win.get_window_type() === Meta.WindowType.NORMAL) {
@@ -463,3 +582,4 @@ export function moveAppToWorkspace(switcher, workspaceIndex, switchWorkspace = t
         targetWorkspace.activate(global.get_current_time());
     }
 }
+

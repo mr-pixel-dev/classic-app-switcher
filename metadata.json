@@ -1,18 +1,19 @@
 {
-  "uuid": "classic-app-switcher@mr-pixel-dev",
-  "name": "Classic App Switcher",
+  "author": "Mr Pixel",
   "description": "Mouse friendly application switching for GNOME",
-  "author": "Mr Pixel <mr-pixel-dev@users.noreply.github.com>",
-  "url": "https://github.com/mr-pixel-dev/classic-app-switcher",
+  "gettext-domain": "classic-app-switcher",
+  "name": "Classic App Switcher",
+  "settings-schema": "org.gnome.shell.extensions.classic-app-switcher",
   "shell-version": [
     "46",
     "47",
     "48",
     "49",
-    "50"
+    "50",
+    "51"
   ],
-  "version": 11,
-  "version-name": "3.0",
-  "settings-schema": "org.gnome.shell.extensions.classic-app-switcher",
-  "gettext-domain": "classic-app-switcher"
+  "url": "https://github.com/mr-pixel-dev/classic-app-switcher",
+  "uuid": "classic-app-switcher@mr-pixel-dev",
+  "version": 14,
+  "version-name": "3.1"
 }
